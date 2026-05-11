@@ -5,8 +5,14 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
+const GREEN = '#16a34a';
+const RED   = '#dc2626';
+const BLUE  = '#2563eb';
+
+const ttStyle = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 };
+
 export default function Dashboard() {
-  const [stats, setStats] = useState(null);
+  const [stats, setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +21,7 @@ export default function Dashboard() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading">Loading…</div>;
 
   if (!stats || stats.total === 0) {
     return (
@@ -29,74 +35,65 @@ export default function Dashboard() {
   const {
     totalPnl, winRate, total, winners, losers,
     avgWin, avgLoss, bestTrade, worstTrade,
-    equityCurve, pnlByMonth, pnlBySymbol,
+    equityCurve, pnlByMonth, pnlByStrategy,
   } = stats;
 
   return (
     <div className="dashboard">
-      <h1 style={{ fontSize: 24, marginBottom: 24 }}>Dashboard</h1>
+      <h1>Dashboard</h1>
 
       <div className="stat-cards">
-        <StatCard label="Total P&L"        value={`$${totalPnl.toFixed(2)}`} color={totalPnl >= 0 ? 'green' : 'red'} />
-        <StatCard label="Win Rate"         value={`${winRate}%`} />
+        <StatCard label="Total P&L"        value={`${totalPnl >= 0 ? '+' : ''}₹${totalPnl.toFixed(0)}`} color={totalPnl >= 0 ? 'green' : 'red'} />
+        <StatCard label="Win Rate"         value={`${winRate}%`}  color="blue" />
         <StatCard label="Total Trades"     value={total} />
         <StatCard label="Winners / Losers" value={`${winners} / ${losers}`} />
-        <StatCard label="Avg Win"          value={`$${avgWin.toFixed(2)}`}  color="green" />
-        <StatCard label="Avg Loss"         value={`$${avgLoss.toFixed(2)}`} color="red" />
+        <StatCard label="Avg Win"          value={`₹${avgWin.toFixed(0)}`}          color="green" />
+        <StatCard label="Avg Loss"         value={`₹${Math.abs(avgLoss).toFixed(0)}`} color="red" />
       </div>
 
       {equityCurve.length > 1 && (
         <div className="chart-section">
           <h2>Equity Curve</h2>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={220}>
             <LineChart data={equityCurve}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2e3244" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <Tooltip
-                contentStyle={{ background: '#1a1d27', border: '1px solid #2e3244' }}
-                formatter={v => [`$${v}`, 'Cumulative P&L']}
-              />
-              <Line type="monotone" dataKey="pnl" stroke="#4ade80" dot={false} strokeWidth={2} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `₹${v}`} />
+              <Tooltip contentStyle={ttStyle} formatter={v => [`₹${v}`, 'Cumulative P&L']} />
+              <Line type="monotone" dataKey="pnl" stroke={BLUE} dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {pnlByMonth.length > 0 && (
+      {pnlByMonth?.length > 0 && (
         <div className="chart-section">
-          <h2>P&L by Month</h2>
+          <h2>P&amp;L by Month</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={pnlByMonth}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2e3244" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <Tooltip
-                contentStyle={{ background: '#1a1d27', border: '1px solid #2e3244' }}
-                formatter={v => [`$${v}`, 'P&L']}
-              />
-              <Bar dataKey="pnl">
-                {pnlByMonth.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? '#4ade80' : '#f87171'} />)}
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `₹${v}`} />
+              <Tooltip contentStyle={ttStyle} formatter={v => [`₹${v}`, 'P&L']} />
+              <Bar dataKey="pnl" radius={[4,4,0,0]}>
+                {pnlByMonth.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? GREEN : RED} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {pnlBySymbol.length > 0 && (
+      {pnlByStrategy?.length > 0 && (
         <div className="chart-section">
-          <h2>P&L by Symbol</h2>
-          <ResponsiveContainer width="100%" height={Math.max(180, pnlBySymbol.length * 36)}>
-            <BarChart data={pnlBySymbol} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#2e3244" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis dataKey="symbol" type="category" tick={{ fontSize: 11, fill: '#94a3b8' }} width={70} />
-              <Tooltip
-                contentStyle={{ background: '#1a1d27', border: '1px solid #2e3244' }}
-                formatter={v => [`$${v}`, 'P&L']}
-              />
-              <Bar dataKey="pnl">
-                {pnlBySymbol.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? '#4ade80' : '#f87171'} />)}
+          <h2>P&amp;L by Strategy</h2>
+          <ResponsiveContainer width="100%" height={Math.max(160, pnlByStrategy.length * 44)}>
+            <BarChart data={pnlByStrategy} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `₹${v}`} />
+              <YAxis dataKey="strategy" type="category" tick={{ fontSize: 11, fill: '#64748b' }} width={120} />
+              <Tooltip contentStyle={ttStyle} formatter={v => [`₹${v}`, 'P&L']} />
+              <Bar dataKey="pnl" radius={[0,4,4,0]}>
+                {pnlByStrategy.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? GREEN : RED} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -108,15 +105,15 @@ export default function Dashboard() {
           {bestTrade && (
             <div className="trade-highlight win">
               <h3>Best Trade</h3>
-              <p>{bestTrade.symbol} &mdash; {bestTrade.date}</p>
-              <p className="pnl">+${bestTrade.pnl?.toFixed(2)}</p>
+              <p style={{ marginBottom: 4 }}>{bestTrade.instrument} — {bestTrade.strategy || 'Options'} · {bestTrade.date}</p>
+              <p className="hl-pnl">+₹{bestTrade.pnl?.toFixed(0)}</p>
             </div>
           )}
           {worstTrade && (
             <div className="trade-highlight loss">
               <h3>Worst Trade</h3>
-              <p>{worstTrade.symbol} &mdash; {worstTrade.date}</p>
-              <p className="pnl">${worstTrade.pnl?.toFixed(2)}</p>
+              <p style={{ marginBottom: 4 }}>{worstTrade.instrument} — {worstTrade.strategy || 'Options'} · {worstTrade.date}</p>
+              <p className="hl-pnl">₹{worstTrade.pnl?.toFixed(0)}</p>
             </div>
           )}
         </div>

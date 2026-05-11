@@ -11,7 +11,7 @@ function Navbar() {
       <div className="navbar-links">
         <NavLink to="/" end>Dashboard</NavLink>
         <NavLink to="/trades">Trades</NavLink>
-        <NavLink to="/trades/new" className="btn btn-primary btn-sm">+ Add Trade</NavLink>
+        <NavLink to="/trades/new" className="add-btn">+ Add Trade</NavLink>
       </div>
     </nav>
   );

@@ -6,18 +6,15 @@ const db = new DatabaseSync(dbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS trades (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    symbol       TEXT    NOT NULL,
-    date         TEXT    NOT NULL,
-    direction    TEXT    NOT NULL CHECK(direction IN ('long', 'short')),
-    entry_price  REAL    NOT NULL,
-    exit_price   REAL,
-    quantity     REAL    NOT NULL,
-    strategy     TEXT,
-    tags         TEXT    DEFAULT '[]',
-    notes        TEXT,
-    status       TEXT    NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed')),
-    created_at   TEXT    DEFAULT (datetime('now'))
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT NOT NULL,
+    instrument  TEXT NOT NULL DEFAULT 'NIFTY',
+    strategy    TEXT,
+    legs        TEXT NOT NULL DEFAULT '[]',
+    status      TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed')),
+    notes       TEXT,
+    tags        TEXT DEFAULT '[]',
+    created_at  TEXT DEFAULT (datetime('now'))
   )
 `);
 
