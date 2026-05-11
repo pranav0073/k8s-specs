@@ -2,6 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
+function localDateStr(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function fmtDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' });
@@ -59,7 +66,7 @@ export default function MarketDiary() {
       .catch(() => {});
   }, [selectedDate]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   const handleAddToday = () => setSelectedDate(today);
 

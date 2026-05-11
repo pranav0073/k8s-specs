@@ -4,11 +4,16 @@ import axios from 'axios';
 
 const LOT_SIZE = 65;
 
+function localDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const EMPTY_LEG = { side: 'S', expiry: '', strike: '', type: 'PE', lots: 1, entry_price: '', exit_price: '' };
 
 const EMPTY_FORM = {
   instrument: 'NIFTY',
-  date: new Date().toISOString().slice(0, 10),
+  date: localDateStr(),
   close_date: '',
   strategy: '',
   status: 'open',

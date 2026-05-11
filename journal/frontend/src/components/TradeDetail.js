@@ -24,6 +24,14 @@ function fmtDateShort(dateStr) {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
 }
 
+// Returns YYYY-MM-DD in local timezone (avoids UTC shift for IST/similar zones)
+function localDateStr(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function daysBetween(a, b) {
   const msA = new Date(a + 'T00:00:00').getTime();
   const msB = new Date(b + 'T00:00:00').getTime();
@@ -36,7 +44,7 @@ function generateDateRange(startDate, endDate) {
   const end   = new Date(endDate   + 'T00:00:00');
   let cur = new Date(start);
   while (cur <= end && dates.length < 120) {
-    dates.push(cur.toISOString().slice(0, 10));
+    dates.push(localDateStr(cur)); // local date, not UTC
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
@@ -184,7 +192,7 @@ export default function TradeDetail() {
   // load market sessions for the date range once we have the trade
   useEffect(() => {
     if (!trade) return;
-    const today    = new Date().toISOString().slice(0, 10);
+    const today    = localDateStr();
     const endDate  = trade.close_date || today;
     axios.get('/api/sessions', { params: { from: trade.date, to: endDate } })
       .then(r => {
@@ -202,7 +210,7 @@ export default function TradeDetail() {
   if (loading) return <div className="loading">Loading…</div>;
   if (!trade)  return <div className="error-msg">Trade not found.</div>;
 
-  const today   = new Date().toISOString().slice(0, 10);
+  const today   = localDateStr();
   const endDate = trade.close_date || today;
   const dates   = generateDateRange(trade.date, endDate);
   const daysHeld = daysBetween(trade.date, endDate);
