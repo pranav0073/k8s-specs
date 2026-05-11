@@ -104,6 +104,7 @@ export default function TradeList() {
                 </td>
                 <td><span className={`status-badge ${t.status}`}>{t.status}</span></td>
                 <td className="actions">
+                  <Link to={`/trades/${t.id}`} className="btn btn-sm">View</Link>
                   <Link to={`/trades/${t.id}/edit`} className="btn btn-sm">Edit</Link>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(t.id)}>Del</button>
                 </td>

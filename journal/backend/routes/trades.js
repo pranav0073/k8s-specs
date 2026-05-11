@@ -116,13 +116,13 @@ router.get('/:id', (req, res) => {
 
 // POST /api/trades
 router.post('/', (req, res) => {
-  const { date, instrument, strategy, legs, status, notes, tags } = req.body;
+  const { date, instrument, strategy, legs, status, notes, tags, close_date } = req.body;
   if (!date || !Array.isArray(legs) || legs.length === 0) {
     return res.status(400).json({ error: 'date and legs[] are required' });
   }
   const result = db.prepare(`
-    INSERT INTO trades (date, instrument, strategy, legs, status, notes, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO trades (date, instrument, strategy, legs, status, notes, tags, close_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     date,
     (instrument || 'NIFTY').toUpperCase(),
@@ -130,7 +130,8 @@ router.post('/', (req, res) => {
     JSON.stringify(legs),
     status || 'open',
     notes || null,
-    JSON.stringify(tags || [])
+    JSON.stringify(tags || []),
+    close_date || null
   );
   res.status(201).json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(Number(result.lastInsertRowid))));
 });
@@ -140,9 +141,9 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Trade not found' });
 
-  const { date, instrument, strategy, legs, status, notes, tags } = req.body;
+  const { date, instrument, strategy, legs, status, notes, tags, close_date } = req.body;
   db.prepare(`
-    UPDATE trades SET date=?, instrument=?, strategy=?, legs=?, status=?, notes=?, tags=? WHERE id=?
+    UPDATE trades SET date=?, instrument=?, strategy=?, legs=?, status=?, notes=?, tags=?, close_date=? WHERE id=?
   `).run(
     date       ?? existing.date,
     ((instrument ?? existing.instrument) || 'NIFTY').toUpperCase(),
@@ -151,6 +152,7 @@ router.put('/:id', (req, res) => {
     status ?? existing.status,
     notes !== undefined ? (notes || null) : existing.notes,
     JSON.stringify(tags ?? JSON.parse(existing.tags || '[]')),
+    close_date !== undefined ? (close_date || null) : existing.close_date,
     req.params.id
   );
   res.json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id)));
@@ -161,6 +163,45 @@ router.delete('/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM trades WHERE id = ?').get(req.params.id))
     return res.status(404).json({ error: 'Trade not found' });
   db.prepare('DELETE FROM trades WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM trade_comments WHERE trade_id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ── Trade Comments ────────────────────────────────────────────────────────────
+
+// GET /api/trades/:id/comments
+router.get('/:id/comments', (req, res) => {
+  const comments = db.prepare(
+    'SELECT * FROM trade_comments WHERE trade_id = ? ORDER BY date ASC'
+  ).all(req.params.id);
+  res.json(comments);
+});
+
+// POST /api/trades/:id/comments  (upsert by trade_id + date)
+router.post('/:id/comments', (req, res) => {
+  const { date, comment, emotion } = req.body;
+  if (!date) return res.status(400).json({ error: 'date is required' });
+
+  const existing = db.prepare(
+    'SELECT id FROM trade_comments WHERE trade_id = ? AND date = ?'
+  ).get(req.params.id, date);
+
+  if (existing) {
+    db.prepare('UPDATE trade_comments SET comment=?, emotion=? WHERE id=?')
+      .run(comment || null, emotion || null, existing.id);
+  } else {
+    db.prepare('INSERT INTO trade_comments (trade_id, date, comment, emotion) VALUES (?, ?, ?, ?)')
+      .run(req.params.id, date, comment || null, emotion || null);
+  }
+  res.json(
+    db.prepare('SELECT * FROM trade_comments WHERE trade_id = ? AND date = ?').get(req.params.id, date)
+  );
+});
+
+// DELETE /api/trades/:id/comments/:cid
+router.delete('/:id/comments/:cid', (req, res) => {
+  db.prepare('DELETE FROM trade_comments WHERE id = ? AND trade_id = ?')
+    .run(req.params.cid, req.params.id);
   res.json({ success: true });
 });
 

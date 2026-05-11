@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trade Detail — Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1e3a5f; --blue: #2563eb; --green: #16a34a; --red: #dc2626;
+    --bg: #f0f2f5; --surface: #fff; --border: #e2e8f0; --muted: #64748b;
+    --text: #1a202c; --buy-bg: #eff6ff; --sell-bg: #fff1f2;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* Navbar */
+  .navbar { display: flex; align-items: center; justify-content: space-between; background: var(--navy); padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .navbar-brand { font-size: 17px; font-weight: 700; color: #fff; }
+  .navbar-links { display: flex; gap: 4px; align-items: center; }
+  .nav-link { color: rgba(255,255,255,0.7); padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .nav-link.active { color: #fff; background: rgba(255,255,255,0.12); }
+  .nav-link.add { background: var(--blue); color: #fff; font-weight: 600; }
+
+  .page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  /* Breadcrumb */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .breadcrumb a { color: var(--blue); cursor: pointer; text-decoration: none; }
+  .breadcrumb span { color: var(--muted); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 16px; }
+  .section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+  /* Trade header */
+  .trade-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .trade-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .trade-meta { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .meta-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+
+  /* P&L banner */
+  .pnl-banner { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; }
+  .pnl-cell { flex: 1; padding: 16px 20px; text-align: center; border-right: 1px solid var(--border); }
+  .pnl-cell:last-child { border-right: none; }
+  .pnl-cell .lbl { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .pnl-cell .val { font-size: 22px; font-weight: 800; }
+  .pnl-cell .val.up   { color: var(--green); }
+  .pnl-cell .val.down { color: var(--red); }
+  .pnl-cell .val.blue { color: var(--blue); }
+  .pnl-cell .val.neutral { color: var(--text); }
+
+  /* Leg badges */
+  .leg-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 5px; margin-bottom: 4px; }
+  .leg-badge.buy  { background: var(--buy-bg); color: var(--blue); border: 1px solid #bfdbfe; }
+  .leg-badge.sell { background: var(--sell-bg); color: var(--red);  border: 1px solid #fecaca; }
+
+  /* Status */
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .status-badge.open   { background: #eff6ff; color: var(--blue); }
+  .status-badge.closed { background: #f0fdf4; color: var(--green); }
+
+  /* ── Timeline ── */
+  .timeline-table { width: 100%; border-collapse: collapse; }
+  .timeline-table thead tr { background: #f8f9fc; }
+  .timeline-table th {
+    padding: 10px 12px; text-align: left;
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 2px solid var(--border);
+  }
+  .timeline-table td { padding: 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .timeline-table tr:last-child td { border-bottom: none; }
+  .timeline-table tbody tr:hover { background: #fafbff; }
+
+  .tl-day-cell { padding: 12px; min-width: 100px; }
+  .tl-date { font-weight: 700; font-size: 13px; }
+  .tl-weekday { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .tl-entry-exit { margin-top: 4px; }
+
+  .tl-nifty { padding: 12px; min-width: 280px; }
+  .nifty-ohlc { display: flex; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .ohlc-item { font-size: 12px; }
+  .ohlc-item .k { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .ohlc-item .v { font-weight: 700; font-size: 13px; }
+  .ohlc-item .v.hi { color: var(--green); }
+  .ohlc-item .v.lo { color: var(--red); }
+  .change-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .change-pill.up   { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+  .change-pill.down { background: #fef2f2; color: var(--red);   border: 1px solid #fecaca; }
+
+  /* mini range bar */
+  .mini-range { margin-top: 6px; }
+  .mini-track { height: 5px; background: #fee2e2; border-radius: 3px; position: relative; }
+  .mini-fill  { height: 5px; background: var(--green); border-radius: 3px; }
+  .mini-dot   { position: absolute; top: -4px; width: 12px; height: 12px; background: var(--blue); border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transform: translateX(-50%); }
+  .mini-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* No NIFTY data */
+  .no-data { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  /* Emotion selector */
+  .emotion-cell { padding: 12px; min-width: 140px; }
+  .emotion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .emotion-btn {
+    padding: 4px 6px; border-radius: 6px; border: 1.5px solid var(--border);
+    background: var(--bg); cursor: pointer; font-size: 12px; text-align: center;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .emotion-btn:hover { border-color: var(--blue); background: #eff6ff; }
+  .emotion-btn.selected { border-color: var(--blue); background: #eff6ff; color: var(--blue); font-weight: 700; }
+  .emotion-btn.selected.anxious  { border-color: var(--red);   background: #fff1f2; color: var(--red); }
+  .emotion-btn.selected.fomo     { border-color: #f59e0b; background: #fffbeb; color: #b45309; }
+  .emotion-btn.selected.greedy   { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
+  .emotion-btn.selected.patient  { border-color: var(--green); background: #f0fdf4; color: var(--green); }
+  .emotion-btn.selected.relieved { border-color: var(--green); background: #f0fdf4; color: var(--green); }
+
+  /* Comment cell */
+  .comment-cell { padding: 10px 12px; min-width: 260px; }
+  .comment-box {
+    width: 100%; min-height: 56px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-family: inherit; resize: none;
+    background: var(--bg); color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+    line-height: 1.45;
+  }
+  .comment-box:focus { outline: none; border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,0.08); }
+  .comment-box::placeholder { color: #aab; font-style: italic; }
+
+  /* Entry/exit marker */
+  .marker { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+  .marker.entry { background: #eff6ff; color: var(--blue); border: 1px solid #bfdbfe; }
+  .marker.exit  { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+  .marker.active { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+  /* Day strip on left */
+  .day-strip { width: 4px; min-height: 100%; border-radius: 0; align-self: stretch; }
+
+  .tl-row-wrap { display: flex; }
+  .tl-strip { width: 4px; flex-shrink: 0; }
+  .tl-strip.up   { background: var(--green); }
+  .tl-strip.down { background: var(--red); }
+  .tl-strip.none { background: var(--border); }
+
+  /* Summary section */
+  .summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  .sum-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .sum-card .lbl { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .sum-card .val { font-size: 18px; font-weight: 800; }
+  .sum-card .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* Comment log */
+  .comment-log { display: flex; flex-direction: column; gap: 10px; }
+  .comment-log-item { display: flex; gap: 12px; }
+  .log-date { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; padding-top: 2px; }
+  .log-bubble { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; flex: 1; font-size: 13px; line-height: 1.5; position: relative; }
+  .log-bubble .log-emotion { position: absolute; top: 10px; right: 12px; font-size: 15px; }
+
+  /* Buttons */
+  .btn { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--blue); }
+
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .mb12 { margin-bottom: 12px; }
+  .mb16 { margin-bottom: 16px; }
+  .mt8  { margin-top: 8px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="navbar-brand">Trading Journal</div>
+  <div class="navbar-links">
+    <span class="nav-link">Dashboard</span>
+    <span class="nav-link active">Trades</span>
+    <span class="nav-link">Journal</span>
+    <span class="nav-link add">+ Add Trade</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="#">Trades</a>
+    <span>›</span>
+    <span>Calendar Spread · 23600PE · #TRD-012</span>
+  </div>
+
+  <!-- ── Trade header ── -->
+  <div class="card mb16">
+    <div class="trade-header">
+      <div>
+        <div class="trade-title">Calendar Spread &nbsp;·&nbsp; NIFTY 23600PE</div>
+        <div class="row mb12" style="margin-top:8px;">
+          <span class="leg-badge sell">S 2L 23600PE 02 Jun</span>
+          <span class="leg-badge buy">B 2L 23600PE 30 Jun</span>
+        </div>
+        <div class="trade-meta">
+          <span class="meta-chip">📅 Opened 09 May 2026</span>
+          <span class="meta-chip">🔒 Closed 12 May 2026</span>
+          <span class="meta-chip">⏱ Held 4 days</span>
+          <span class="status-badge closed">Closed</span>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <button class="btn btn-sm" style="margin-bottom:8px;">Edit Trade</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── P&L summary banner ── -->
+  <div class="pnl-banner" style="background:var(--surface);">
+    <div class="pnl-cell">
+      <div class="lbl">Net Premium Paid</div>
+      <div class="val down">₹8,658</div>
+    </div>
+    <div class="pnl-cell">
+      <div class="lbl">Realised P&L</div>
+      <div class="val up">+₹4,225</div>
+    </div>
+    <div class="pnl-cell">
+      <div class="lbl">Return on Premium</div>
+      <div class="val up">+48.8%</div>
+    </div>
+    <div class="pnl-cell">
+      <div class="lbl">Days Held</div>
+      <div class="val neutral">4</div>
+    </div>
+    <div class="pnl-cell">
+      <div class="lbl">Best NIFTY Day</div>
+      <div class="val up">▲ +0.71%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">12 May</div>
+    </div>
+    <div class="pnl-cell">
+      <div class="lbl">Worst NIFTY Day</div>
+      <div class="val down">▼ −1.29%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">08 May</div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('timeline')">📈 Day-by-Day Timeline</div>
+    <div class="tab" onclick="switchTab('log')">💬 Comment Log</div>
+    <div class="tab" onclick="switchTab('summary')">📊 Trade Summary</div>
+  </div>
+
+  <!-- ════════════ TAB 1: Timeline ════════════ -->
+  <div class="tab-panel active" id="tab-timeline">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="timeline-table">
+        <thead>
+          <tr>
+            <th style="width:110px;">Date</th>
+            <th style="width:290px;">NIFTY Data</th>
+            <th style="width:155px;">Emotion</th>
+            <th>Comment / Journal</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- ── Day 1: Entry day ── -->
+          <tr>
+            <td>
+              <div style="display:flex;height:100%;">
+                <div class="tl-strip up"></div>
+                <div class="tl-day-cell">
+                  <div class="tl-date">09 May</div>
+                  <div class="tl-weekday">Friday</div>
+                  <div class="tl-entry-exit" style="margin-top:6px;">
+                    <span class="marker entry">ENTRY</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="tl-nifty">
+                <div class="nifty-ohlc">
+                  <div class="ohlc-item"><div class="k">O</div><div class="v">23,640</div></div>
+                  <div class="ohlc-item"><div class="k">H</div><div class="v hi">23,820</div></div>
+                  <div class="ohlc-item"><div class="k">L</div><div class="v lo">23,510</div></div>
+                  <div class="ohlc-item"><div class="k">C</div><div class="v">23,815</div></div>
+                </div>
+                <div class="row" style="gap:8px;">
+                  <span class="change-pill up">▲ +125 pts &nbsp;+0.53%</span>
+                  <span style="font-size:11px;color:var(--muted);">Range 310 pts</span>
+                </div>
+                <div class="mini-range">
+                  <div class="mini-track" style="max-width:200px;">
+                    <div class="mini-fill" style="width:98%;"></div>
+                    <div class="mini-dot" style="left:98%;"></div>
+                  </div>
+                  <div class="mini-labels" style="max-width:200px;"><span>23,510</span><span>23,820</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="emotion-cell">
+              <div class="emotion-grid">
+                <button class="emotion-btn selected" onclick="pickEmotion(this, 'confident')">😌 Confident</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'anxious')">😰 Anxious</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'patient')">🧘 Patient</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'fomo')">😱 FOMO</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'greedy')">🤑 Greedy</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'relieved')">😊 Relieved</button>
+              </div>
+            </td>
+            <td class="comment-cell">
+              <textarea class="comment-box" placeholder="How are you feeling about this trade today?…">Good setup — IV high on near month, calendar looks attractive. Entered at ₹133 net debit. Expecting a rangebound week.</textarea>
+            </td>
+          </tr>
+
+          <!-- ── Day 2 ── -->
+          <tr>
+            <td>
+              <div style="display:flex;height:100%;">
+                <div class="tl-strip down"></div>
+                <div class="tl-day-cell">
+                  <div class="tl-date">10 May</div>
+                  <div class="tl-weekday">Saturday</div>
+                  <div class="tl-entry-exit" style="margin-top:6px;">
+                    <span class="marker active">ACTIVE</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="tl-nifty">
+                <span class="no-data">Weekend — market closed</span>
+              </div>
+            </td>
+            <td class="emotion-cell">
+              <div class="emotion-grid">
+                <button class="emotion-btn" onclick="pickEmotion(this, 'confident')">😌 Confident</button>
+                <button class="emotion-btn selected anxious" onclick="pickEmotion(this, 'anxious')">😰 Anxious</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'patient')">🧘 Patient</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'fomo')">😱 FOMO</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'greedy')">🤑 Greedy</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'relieved')">😊 Relieved</button>
+              </div>
+            </td>
+            <td class="comment-cell">
+              <textarea class="comment-box">Bit anxious over the weekend. Global cues mixed. Hoping NIFTY stays below 23900 on Monday.</textarea>
+            </td>
+          </tr>
+
+          <!-- ── Day 3 ── -->
+          <tr>
+            <td>
+              <div style="display:flex;height:100%;">
+                <div class="tl-strip down"></div>
+                <div class="tl-day-cell">
+                  <div class="tl-date">11 May</div>
+                  <div class="tl-weekday">Sunday</div>
+                  <div class="tl-entry-exit" style="margin-top:6px;">
+                    <span class="marker active">ACTIVE</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="tl-nifty">
+                <span class="no-data">Weekend — market closed</span>
+              </div>
+            </td>
+            <td class="emotion-cell">
+              <div class="emotion-grid">
+                <button class="emotion-btn" onclick="pickEmotion(this, 'confident')">😌 Confident</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'anxious')">😰 Anxious</button>
+                <button class="emotion-btn selected patient" onclick="pickEmotion(this, 'patient')">🧘 Patient</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'fomo')">😱 FOMO</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'greedy')">🤑 Greedy</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'relieved')">😊 Relieved</button>
+              </div>
+            </td>
+            <td class="comment-cell">
+              <textarea class="comment-box" placeholder="How are you feeling about this trade today?…">Reviewed the position. Max loss defined. Just need to wait — theta working in my favour.</textarea>
+            </td>
+          </tr>
+
+          <!-- ── Day 4: Exit day ── -->
+          <tr>
+            <td>
+              <div style="display:flex;height:100%;">
+                <div class="tl-strip up"></div>
+                <div class="tl-day-cell">
+                  <div class="tl-date">12 May</div>
+                  <div class="tl-weekday">Monday</div>
+                  <div class="tl-entry-exit" style="margin-top:6px;">
+                    <span class="marker exit">EXIT</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="tl-nifty">
+                <div class="nifty-ohlc">
+                  <div class="ohlc-item"><div class="k">O</div><div class="v">23,810</div></div>
+                  <div class="ohlc-item"><div class="k">H</div><div class="v hi">24,050</div></div>
+                  <div class="ohlc-item"><div class="k">L</div><div class="v lo">23,740</div></div>
+                  <div class="ohlc-item"><div class="k">C</div><div class="v">23,985</div></div>
+                </div>
+                <div class="row" style="gap:8px;">
+                  <span class="change-pill up">▲ +170 pts &nbsp;+0.71%</span>
+                  <span style="font-size:11px;color:var(--muted);">Range 310 pts</span>
+                </div>
+                <div class="mini-range">
+                  <div class="mini-track" style="max-width:200px;">
+                    <div class="mini-fill" style="width:62%;"></div>
+                    <div class="mini-dot" style="left:62%;"></div>
+                  </div>
+                  <div class="mini-labels" style="max-width:200px;"><span>23,740</span><span>24,050</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="emotion-cell">
+              <div class="emotion-grid">
+                <button class="emotion-btn" onclick="pickEmotion(this, 'confident')">😌 Confident</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'anxious')">😰 Anxious</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'patient')">🧘 Patient</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'fomo')">😱 FOMO</button>
+                <button class="emotion-btn" onclick="pickEmotion(this, 'greedy')">🤑 Greedy</button>
+                <button class="emotion-btn selected relieved" onclick="pickEmotion(this, 'relieved')">😊 Relieved</button>
+              </div>
+            </td>
+            <td class="comment-cell">
+              <textarea class="comment-box">IV crushed perfectly on gap up. Exited at target +₹4,225. Should have held a bit longer but happy with the result. Calendar worked as expected.</textarea>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 2: Comment Log ════════════ -->
+  <div class="tab-panel" id="tab-log">
+    <div class="card">
+      <div class="section-title">All Comments — Chronological</div>
+      <div class="comment-log">
+
+        <div class="comment-log-item">
+          <div class="log-date">09 May<br/><span style="font-size:10px;color:#aab;">ENTRY · 😌</span></div>
+          <div class="log-bubble">
+            Good setup — IV high on near month, calendar looks attractive. Entered at ₹133 net debit. Expecting a rangebound week.
+            <div class="log-emotion">😌</div>
+          </div>
+        </div>
+
+        <div class="comment-log-item">
+          <div class="log-date">10 May<br/><span style="font-size:10px;color:#aab;">DAY 2 · 😰</span></div>
+          <div class="log-bubble">
+            Bit anxious over the weekend. Global cues mixed. Hoping NIFTY stays below 23900 on Monday.
+            <div class="log-emotion">😰</div>
+          </div>
+        </div>
+
+        <div class="comment-log-item">
+          <div class="log-date">11 May<br/><span style="font-size:10px;color:#aab;">DAY 3 · 🧘</span></div>
+          <div class="log-bubble">
+            Reviewed the position. Max loss defined. Just need to wait — theta working in my favour.
+            <div class="log-emotion">🧘</div>
+          </div>
+        </div>
+
+        <div class="comment-log-item">
+          <div class="log-date">12 May<br/><span style="font-size:10px;color:#aab;">EXIT · 😊</span></div>
+          <div class="log-bubble" style="border-left:3px solid var(--green);">
+            IV crushed perfectly on gap up. Exited at target +₹4,225. Should have held a bit longer but happy with the result. Calendar worked as expected.
+            <div class="log-emotion">😊</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 3: Summary ════════════ -->
+  <div class="tab-panel" id="tab-summary">
+    <div class="summary-grid mb16">
+      <div class="sum-card">
+        <div class="lbl">Duration</div>
+        <div class="val">4 days</div>
+        <div class="sub">09 May → 12 May</div>
+      </div>
+      <div class="sum-card">
+        <div class="lbl">Realised P&L</div>
+        <div class="val" style="color:var(--green);">+₹4,225</div>
+        <div class="sub">+48.8% on premium</div>
+      </div>
+      <div class="sum-card">
+        <div class="lbl">NIFTY over trade</div>
+        <div class="val" style="color:var(--green);">+295 pts</div>
+        <div class="sub">23,815 → 23,985 (+1.24%)</div>
+      </div>
+      <div class="sum-card">
+        <div class="lbl">Trading days</div>
+        <div class="val">2</div>
+        <div class="sub">2 weekends</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">NIFTY Context During Trade</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8f9fc;">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Date</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Open</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">High</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Low</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Close</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Change</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);">Your Emotion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:700;">09 May <span class="marker entry" style="margin-left:4px;">ENTRY</span></td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);">23,640</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);color:var(--green);font-weight:600;">23,820</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);color:var(--red);font-weight:600;">23,510</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);">23,815</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);"><span class="change-pill up">▲ +0.53%</span></td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);">😌 Confident</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:700;color:var(--muted);">10 May (Sat)</td>
+            <td colspan="5" style="padding:9px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-style:italic;">Market closed</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);">😰 Anxious</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:700;color:var(--muted);">11 May (Sun)</td>
+            <td colspan="5" style="padding:9px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-style:italic;">Market closed</td>
+            <td style="padding:9px 12px;border-bottom:1px solid var(--border);">🧘 Patient</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 12px;font-weight:700;">12 May <span class="marker exit" style="margin-left:4px;">EXIT</span></td>
+            <td style="padding:9px 12px;">23,810</td>
+            <td style="padding:9px 12px;color:var(--green);font-weight:600;">24,050</td>
+            <td style="padding:9px 12px;color:var(--red);font-weight:600;">23,740</td>
+            <td style="padding:9px 12px;">23,985</td>
+            <td style="padding:9px 12px;"><span class="change-pill up">▲ +0.71%</span></td>
+            <td style="padding:9px 12px;">😊 Relieved</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      const names = ['timeline','log','summary'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'tab-' + name);
+    });
+  }
+
+  function pickEmotion(btn, type) {
+    const grid = btn.closest('.emotion-grid');
+    grid.querySelectorAll('.emotion-btn').forEach(b => {
+      b.classList.remove('selected','anxious','fomo','greedy','patient','relieved','confident');
+    });
+    btn.classList.add('selected');
+    if (['anxious','fomo','greedy','patient','relieved'].includes(type)) btn.classList.add(type);
+  }
+</script>
+</body>
+</html>
