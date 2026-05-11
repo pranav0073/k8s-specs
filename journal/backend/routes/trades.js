@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-const LOT_SIZE = 75; // NIFTY default lot size
+const LOT_SIZE = 65; // NIFTY lot size
 
 function parseLeg(leg) {
   return {

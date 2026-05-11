@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 
-const LOT_SIZE = 75;
+const LOT_SIZE = 65;
 
 const EMPTY_LEG = { side: 'S', expiry: '', strike: '', type: 'PE', lots: 1, entry_price: '', exit_price: '' };
 
