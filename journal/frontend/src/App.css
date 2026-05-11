@@ -1,0 +1,311 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f0f2f5;
+  --surface:   #ffffff;
+  --surface2:  #f8f9fc;
+  --border:    #e2e8f0;
+  --text:      #1a202c;
+  --muted:     #64748b;
+  --navy:      #1e3a5f;
+  --blue:      #2563eb;
+  --green:     #16a34a;
+  --red:       #dc2626;
+  --buy-bg:    #eff6ff;
+  --sell-bg:   #fff1f2;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+/* ── Navbar ───────────────────────────────── */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--navy);
+  padding: 0 24px;
+  height: 52px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.navbar-brand { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+.navbar-links { display: flex; gap: 4px; align-items: center; }
+.navbar-links a {
+  color: rgba(255,255,255,0.75);
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.navbar-links a:hover,
+.navbar-links a.active    { color: #fff; background: rgba(255,255,255,0.12); }
+.navbar-links a.add-btn   { background: var(--blue); color: #fff; font-weight: 600; }
+.navbar-links a.add-btn:hover { background: #1d4ed8; }
+
+/* ── Layout ───────────────────────────────── */
+.main-content { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+/* ── Buttons ──────────────────────────────── */
+.btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn:hover           { background: var(--bg); }
+.btn-primary         { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn-primary:hover   { background: #1d4ed8; border-color: #1d4ed8; }
+.btn-secondary       { color: var(--muted); }
+.btn-danger          { border-color: transparent; color: var(--red); background: transparent; }
+.btn-danger:hover    { background: #fff1f2; }
+.btn-sm              { padding: 4px 10px; font-size: 12px; }
+
+/* ── Stat cards ───────────────────────────── */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.stat-label           { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.stat-value           { font-size: 22px; font-weight: 700; }
+.stat-value.green     { color: var(--green); }
+.stat-value.red       { color: var(--red); }
+.stat-value.blue      { color: var(--blue); }
+
+/* ── Charts ───────────────────────────────── */
+.chart-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.chart-section h2 { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+
+/* ── Best / Worst ─────────────────────────── */
+.best-worst { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.trade-highlight {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.trade-highlight.win  { border-left: 3px solid var(--green); }
+.trade-highlight.loss { border-left: 3px solid var(--red); }
+.trade-highlight h3   { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.trade-highlight .hl-pnl { font-size: 20px; font-weight: 700; margin-top: 4px; }
+.trade-highlight.win  .hl-pnl { color: var(--green); }
+.trade-highlight.loss .hl-pnl { color: var(--red); }
+
+/* ── Page header ──────────────────────────── */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; font-weight: 700; }
+
+/* ── Filters ──────────────────────────────── */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.filters input,
+.filters select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.filters input:focus,
+.filters select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+/* ── Trades table ─────────────────────────── */
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.trades-table th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.trades-table td             { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+.trades-table tbody tr:hover td { background: #f8faff; }
+td.pnl-green { color: var(--green); font-weight: 700; }
+td.pnl-red   { color: var(--red);   font-weight: 700; }
+td.actions   { display: flex; gap: 4px; }
+
+/* ── Option leg badges ────────────────────── */
+.leg-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.leg-badge.buy  { background: var(--buy-bg);  color: var(--blue); border: 1px solid #bfdbfe; }
+.leg-badge.sell { background: var(--sell-bg); color: var(--red);  border: 1px solid #fecaca; }
+
+.status-badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.status-badge.open   { background: #eff6ff; color: var(--blue); }
+.status-badge.closed { background: #f0fdf4; color: var(--green); }
+
+/* ── Trade form ───────────────────────────── */
+.trade-form-page       { max-width: 920px; }
+.trade-form-page h1    { font-size: 20px; font-weight: 700; margin-bottom: 18px; }
+
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.form-card h3 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.form-group { display: flex; flex-direction: column; flex: 1; min-width: 130px; }
+.form-group.full-width { flex: 1 0 100%; }
+
+label { font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+
+input, select, textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+textarea { resize: vertical; }
+
+/* ── Legs table ───────────────────────────── */
+.legs-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.legs-table th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.legs-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.legs-table tr:last-child td { border-bottom: none; }
+.legs-table input,
+.legs-table select {
+  border: none;
+  background: transparent;
+  padding: 5px 6px;
+  width: 100%;
+  box-shadow: none;
+  border-radius: 4px;
+}
+.legs-table input:focus,
+.legs-table select:focus { background: #eff6ff; outline: none; box-shadow: none; }
+.legs-table tr.buy-row  { background: #f8fbff; }
+.legs-table tr.sell-row { background: #fff8f8; }
+.side-B { color: var(--blue); font-weight: 700; }
+.side-S { color: var(--red);  font-weight: 700; }
+
+/* ── Trade summary bar ────────────────────── */
+.trade-summary {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.summary-item .s-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }
+.summary-item .s-value { font-size: 16px; font-weight: 700; }
+.s-value.debit   { color: var(--red); }
+.s-value.credit  { color: var(--green); }
+.s-value.neutral { color: var(--text); }
+
+.form-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+.error-msg {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: var(--red);
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+/* ── Misc ─────────────────────────────────── */
+.loading     { color: var(--muted); padding: 48px; text-align: center; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+.dashboard h1 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
