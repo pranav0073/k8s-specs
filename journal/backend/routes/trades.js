@@ -1,6 +1,21 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
+const router  = express.Router();
+const path    = require('path');
+const fs      = require('fs');
+const db      = require('../db');
+
+function getUploadsDir() {
+  return process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
+}
+
+function saveImageFile(base64Data, originalFilename) {
+  const uploadsDir = getUploadsDir();
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  const ext      = (originalFilename.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const safeName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, safeName), Buffer.from(base64Data, 'base64'));
+  return safeName;
+}
 
 const LOT_SIZE = 65; // NIFTY lot size
 
@@ -169,12 +184,16 @@ router.delete('/:id', (req, res) => {
 
 // ── Trade Comments ────────────────────────────────────────────────────────────
 
+function parseComment(row) {
+  return { ...row, images: JSON.parse(row.images || '[]') };
+}
+
 // GET /api/trades/:id/comments
 router.get('/:id/comments', (req, res) => {
   const comments = db.prepare(
     'SELECT * FROM trade_comments WHERE trade_id = ? ORDER BY date ASC'
   ).all(req.params.id);
-  res.json(comments);
+  res.json(comments.map(parseComment));
 });
 
 // POST /api/trades/:id/comments  (upsert by trade_id + date)
@@ -183,7 +202,7 @@ router.post('/:id/comments', (req, res) => {
   if (!date) return res.status(400).json({ error: 'date is required' });
 
   const existing = db.prepare(
-    'SELECT id FROM trade_comments WHERE trade_id = ? AND date = ?'
+    'SELECT * FROM trade_comments WHERE trade_id = ? AND date = ?'
   ).get(req.params.id, date);
 
   if (existing) {
@@ -193,15 +212,51 @@ router.post('/:id/comments', (req, res) => {
     db.prepare('INSERT INTO trade_comments (trade_id, date, comment, emotion) VALUES (?, ?, ?, ?)')
       .run(req.params.id, date, comment || null, emotion || null);
   }
-  res.json(
+  res.json(parseComment(
     db.prepare('SELECT * FROM trade_comments WHERE trade_id = ? AND date = ?').get(req.params.id, date)
-  );
+  ));
 });
 
 // DELETE /api/trades/:id/comments/:cid
 router.delete('/:id/comments/:cid', (req, res) => {
   db.prepare('DELETE FROM trade_comments WHERE id = ? AND trade_id = ?')
     .run(req.params.cid, req.params.id);
+  res.json({ success: true });
+});
+
+// POST /api/trades/:id/comments/:date/images
+router.post('/:id/comments/:date/images', (req, res) => {
+  const { data, filename } = req.body;
+  if (!data || !filename) return res.status(400).json({ error: 'data and filename required' });
+
+  const safeName = saveImageFile(data, filename);
+  const { id, date } = req.params;
+
+  const existing = db.prepare('SELECT * FROM trade_comments WHERE trade_id = ? AND date = ?').get(id, date);
+  if (existing) {
+    const images = JSON.parse(existing.images || '[]');
+    images.push(safeName);
+    db.prepare('UPDATE trade_comments SET images = ? WHERE id = ?').run(JSON.stringify(images), existing.id);
+  } else {
+    db.prepare('INSERT INTO trade_comments (trade_id, date, images) VALUES (?, ?, ?)').run(id, date, JSON.stringify([safeName]));
+  }
+
+  res.json({ filename: safeName, url: `/uploads/${safeName}` });
+});
+
+// DELETE /api/trades/:id/comments/:date/images/:filename
+router.delete('/:id/comments/:date/images/:filename', (req, res) => {
+  const { id, date, filename } = req.params;
+
+  const filePath = path.join(getUploadsDir(), filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  const row = db.prepare('SELECT * FROM trade_comments WHERE trade_id = ? AND date = ?').get(id, date);
+  if (row) {
+    const images = JSON.parse(row.images || '[]').filter(f => f !== filename);
+    db.prepare('UPDATE trade_comments SET images = ? WHERE id = ?').run(JSON.stringify(images), row.id);
+  }
+
   res.json({ success: true });
 });
 

@@ -1,6 +1,25 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
+const path    = require('path');
+const fs      = require('fs');
+const db      = require('../db');
+const router  = express.Router();
+
+function parseImages(row) {
+  return { ...row, images: JSON.parse(row.images || '[]') };
+}
+
+function getUploadsDir() {
+  return process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
+}
+
+function saveImageFile(base64Data, originalFilename) {
+  const uploadsDir = getUploadsDir();
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  const ext      = (originalFilename.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const safeName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, safeName), Buffer.from(base64Data, 'base64'));
+  return safeName;
+}
 
 function parseNum(v) {
   if (v == null || v === '') return null;
@@ -16,14 +35,14 @@ router.get('/', (req, res) => {
   if (from) { query += ' AND date >= ?'; params.push(from); }
   if (to)   { query += ' AND date <= ?'; params.push(to); }
   query += ' ORDER BY date DESC';
-  res.json(db.prepare(query).all(...params));
+  res.json(db.prepare(query).all(...params).map(parseImages));
 });
 
 // GET /api/sessions/:date
 router.get('/:date', (req, res) => {
   const session = db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(req.params.date);
   if (!session) return res.status(404).json({ error: 'Session not found' });
-  res.json(session);
+  res.json(parseImages(session));
 });
 
 // GET /api/sessions/:date/active-trades
@@ -78,6 +97,45 @@ router.post('/', (req, res) => {
 // DELETE /api/sessions/:id
 router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM market_sessions WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// POST /api/sessions/:date/images  — upload a chart screenshot (base64 JSON)
+router.post('/:date/images', (req, res) => {
+  const { data, filename } = req.body;
+  if (!data || !filename) return res.status(400).json({ error: 'data and filename required' });
+
+  const safeName = saveImageFile(data, filename);
+
+  // ensure session row exists
+  const existing = db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(req.params.date);
+  if (existing) {
+    const images = JSON.parse(existing.images || '[]');
+    images.push(safeName);
+    db.prepare('UPDATE market_sessions SET images = ? WHERE date = ?')
+      .run(JSON.stringify(images), req.params.date);
+  } else {
+    db.prepare('INSERT INTO market_sessions (date, images) VALUES (?, ?)')
+      .run(req.params.date, JSON.stringify([safeName]));
+  }
+
+  res.json({ filename: safeName, url: `/uploads/${safeName}` });
+});
+
+// DELETE /api/sessions/:date/images/:filename
+router.delete('/:date/images/:filename', (req, res) => {
+  const { date, filename } = req.params;
+
+  const filePath = path.join(getUploadsDir(), filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  const session = db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(date);
+  if (session) {
+    const images = JSON.parse(session.images || '[]').filter(f => f !== filename);
+    db.prepare('UPDATE market_sessions SET images = ? WHERE date = ?')
+      .run(JSON.stringify(images), date);
+  }
+
   res.json({ success: true });
 });
 

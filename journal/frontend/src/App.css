@@ -628,3 +628,110 @@ textarea { resize: vertical; }
 .sg-val    { font-size: 14px; font-weight: 600; color: var(--text); }
 .sg-notes  { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .sg-notes-text { font-size: 13px; color: var(--text); line-height: 1.6; white-space: pre-wrap; }
+
+/* ── Image Upload ─────────────────────────── */
+.img-upload-section { display: flex; flex-direction: column; gap: 10px; }
+
+.img-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.img-thumb-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.img-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: zoom-in;
+  display: block;
+  transition: opacity 0.15s;
+}
+.img-thumb:hover { opacity: 0.85; }
+.img-delete-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.img-thumb-wrap:hover .img-delete-btn { opacity: 1; }
+
+.img-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  background: var(--surface2);
+  user-select: none;
+}
+.img-drop-zone:hover   { border-color: var(--blue); background: var(--buy-bg); color: var(--blue); }
+.img-drop-zone.uploading { border-color: var(--blue); color: var(--blue); }
+.img-drop-zone u { text-decoration: underline; }
+
+/* Lightbox */
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.img-lightbox-inner {
+  position: relative;
+  max-width: 92vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.img-lightbox-img {
+  display: block;
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  background: #000;
+}
+.img-lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
