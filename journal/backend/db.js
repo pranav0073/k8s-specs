@@ -18,4 +18,37 @@ db.exec(`
   )
 `);
 
+// Migration: add close_date column if absent
+const tradeCols = db.prepare('PRAGMA table_info(trades)').all();
+if (!tradeCols.find(c => c.name === 'close_date')) {
+  db.exec('ALTER TABLE trades ADD COLUMN close_date TEXT');
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS market_sessions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL UNIQUE,
+    instrument TEXT NOT NULL DEFAULT 'NIFTY',
+    open       REAL,
+    high       REAL,
+    low        REAL,
+    close      REAL,
+    prev_close REAL,
+    notes      TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trade_comments (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_id   INTEGER NOT NULL,
+    date       TEXT NOT NULL,
+    comment    TEXT,
+    emotion    TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(trade_id, date)
+  )
+`);
+
 module.exports = db;

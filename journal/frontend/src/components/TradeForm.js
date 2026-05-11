@@ -4,11 +4,17 @@ import axios from 'axios';
 
 const LOT_SIZE = 65;
 
+function localDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const EMPTY_LEG = { side: 'S', expiry: '', strike: '', type: 'PE', lots: 1, entry_price: '', exit_price: '' };
 
 const EMPTY_FORM = {
   instrument: 'NIFTY',
-  date: new Date().toISOString().slice(0, 10),
+  date: localDateStr(),
+  close_date: '',
   strategy: '',
   status: 'open',
   notes: '',
@@ -39,6 +45,7 @@ export default function TradeForm() {
       setForm({
         instrument: t.instrument,
         date: t.date,
+        close_date: t.close_date || '',
         strategy: t.strategy || '',
         status: t.status,
         notes: t.notes || '',
@@ -93,6 +100,7 @@ export default function TradeForm() {
       ...form,
       legs: cleanLegs,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      close_date: form.close_date || null,
     };
     try {
       if (isEdit) await axios.put(`/api/trades/${id}`, payload);
@@ -145,6 +153,10 @@ export default function TradeForm() {
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
               </select>
+            </div>
+            <div className="form-group">
+              <label>Close Date</label>
+              <input type="date" value={form.close_date} onChange={set('close_date')} />
             </div>
           </div>
         </div>
