@@ -12,8 +12,8 @@ app.use(express.json());
 app.use('/api/trades', tradesRouter);
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// Serve React build in production
-const buildDir = path.join(__dirname, 'public');
+// Serve React build in production (STATIC_DIR lets Electron override the path)
+const buildDir = process.env.STATIC_DIR || path.join(__dirname, 'public');
 app.use(express.static(buildDir));
 app.get('*', (req, res) => res.sendFile(path.join(buildDir, 'index.html')));
 

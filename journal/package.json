@@ -1,0 +1,40 @@
+{
+  "name": "trading-journal",
+  "version": "1.0.0",
+  "description": "Personal trading journal desktop app",
+  "main": "main.js",
+  "scripts": {
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "dist": "npm run build:frontend && electron-builder --win",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.4"
+  },
+  "build": {
+    "appId": "com.pranav.trading-journal",
+    "productName": "Trading Journal",
+    "asar": true,
+    "asarUnpack": ["**/*.node"],
+    "files": [
+      "main.js",
+      "backend/**/*",
+      "frontend/build/**/*"
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
