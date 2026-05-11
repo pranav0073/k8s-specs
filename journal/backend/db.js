@@ -1,8 +1,8 @@
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'journal.db');
-const db = new Database(dbPath);
+const db = new DatabaseSync(dbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS trades (

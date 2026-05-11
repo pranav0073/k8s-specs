@@ -115,7 +115,7 @@ router.post('/', (req, res) => {
     notes || null, derivedStatus
   );
 
-  res.status(201).json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(result.lastInsertRowid)));
+  res.status(201).json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(Number(result.lastInsertRowid))));
 });
 
 // PUT /api/trades/:id
