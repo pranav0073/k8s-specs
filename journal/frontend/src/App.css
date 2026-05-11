@@ -483,7 +483,7 @@ textarea { resize: vertical; }
 }
 .td-banner-cell:last-child { border-right: none; }
 .td-banner-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-.td-banner-value { font-size: 17px; font-weight: 700; }
+.td-banner-value { font-size: 15px; font-weight: 700; word-break: break-word; overflow-wrap: break-word; }
 .td-banner-value.pos     { color: var(--green); }
 .td-banner-value.neg     { color: var(--red); }
 .td-banner-value.neutral { color: var(--text); }
@@ -531,9 +531,9 @@ textarea { resize: vertical; }
 }
 .timeline-row:hover { background: var(--surface2); }
 
-.tl-date-col   { width: 110px; min-width: 110px; padding: 0 12px; }
-.tl-nifty-col  { flex: 1; padding: 0 16px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
-.tl-comment-col{ flex: 1.4; padding: 0 16px; }
+.tl-date-col   { width: 110px; min-width: 110px; padding: 0 12px; flex-shrink: 0; }
+.tl-nifty-col  { flex: 1; min-width: 0; overflow: hidden; padding: 0 16px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.tl-comment-col{ flex: 1.4; min-width: 0; overflow: hidden; padding: 0 16px; }
 
 .tl-date-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .tl-marker {
@@ -556,7 +556,7 @@ textarea { resize: vertical; }
 .tl-pct.neg     { color: var(--red); }
 .tl-ohlc-mini   { font-size: 11px; color: var(--muted); }
 .tl-no-session  { font-size: 12px; color: var(--muted); font-style: italic; }
-.tl-session-note{ font-size: 11px; color: var(--muted); margin-top: 2px; }
+.tl-session-note{ font-size: 11px; color: var(--muted); margin-top: 2px; word-break: break-word; overflow-wrap: break-word; }
 
 .tl-range-bar {
   position: relative;
