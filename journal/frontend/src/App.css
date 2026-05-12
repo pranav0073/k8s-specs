@@ -715,13 +715,13 @@ textarea { resize: vertical; }
   border-radius: 2px;
   min-width: 4px;
 }
-.tl-range-label { font-size: 10px; color: var(--muted); }
+.tl-range-label { font-size: 10px; color: var(--muted); font-weight: 700; }
 
 /* Vertical emotion strip + notes */
 .tl-emotion-notes {
   display: flex;
   gap: 8px;
-  align-items: flex-start;
+  align-items: stretch;   /* both columns same height */
 }
 .tl-emotions-vert {
   display: flex;
@@ -734,7 +734,7 @@ textarea { resize: vertical; }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .emotion-btn {
   width: 28px; height: 28px;
@@ -751,23 +751,46 @@ textarea { resize: vertical; }
 .emotion-btn:hover    { border-color: var(--blue); background: var(--buy-bg); }
 .emotion-btn.selected { border-color: var(--blue); background: var(--buy-bg); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
 
+/* Textarea fills all space above the bottom bar */
 .tl-comment-input {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   font-size: 13px;
-  min-height: 100px;
-  resize: vertical;
+  resize: none;
   line-height: 1.55;
 }
-.tl-save-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tl-emotion-label { font-size: 12px; color: var(--muted); }
 
-/* Compact image strip below the emotion+notes block */
-.tl-img-strip { margin-top: 8px; }
-.tl-img-strip .img-drop-zone {
-  padding: 7px 12px;
+/* Save + upload on same line */
+.tl-bottom-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.tl-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-bottom: 1px;
+}
+.tl-emotion-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* Inline upload: compact drop zone, thumbnails above it */
+.tl-upload-inline {
+  flex: 1;
+  min-width: 0;
+}
+.tl-upload-inline .img-upload-section { gap: 5px; }
+.tl-upload-inline .img-drop-zone {
+  padding: 5px 10px;
   font-size: 11px;
 }
-.tl-img-strip .img-gallery { margin-bottom: 6px; }
+.tl-upload-inline .img-thumb-wrap {
+  width: 52px;
+  height: 52px;
+}
 
 /* Comment Log */
 .td-comment-log { display: flex; flex-direction: column; gap: 12px; }

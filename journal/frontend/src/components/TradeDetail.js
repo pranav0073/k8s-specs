@@ -155,7 +155,7 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave, trad
             ))}
           </div>
 
-          {/* Notes + save */}
+          {/* Notes: textarea fills to last emotion, save+upload share one line */}
           <div className="tl-notes-area">
             <textarea
               className="tl-comment-input"
@@ -163,29 +163,29 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave, trad
               value={comment}
               onChange={e => setComment(e.target.value)}
             />
-            <div className="tl-save-row">
-              <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              {saved && <span className="save-ok">✓ Saved</span>}
-              {emotion && (
-                <span className="tl-emotion-label">
-                  {EMOTIONS.find(e => e.key === emotion)?.emoji}{' '}
-                  {EMOTIONS.find(e => e.key === emotion)?.label}
-                </span>
-              )}
+            <div className="tl-bottom-row">
+              <div className="tl-save-actions">
+                <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                {saved && <span className="save-ok">✓ Saved</span>}
+                {emotion && (
+                  <span className="tl-emotion-label">
+                    {EMOTIONS.find(e => e.key === emotion)?.emoji}{' '}
+                    {EMOTIONS.find(e => e.key === emotion)?.label}
+                  </span>
+                )}
+              </div>
+              <div className="tl-upload-inline">
+                <ImageUpload
+                  images={initComment?.images || []}
+                  uploadUrl={`/api/trades/${tradeId}/comments/${date}/images`}
+                  deleteUrlFn={fname => `/api/trades/${tradeId}/comments/${date}/images/${fname}`}
+                  onImagesChange={onImagesChange}
+                />
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Image upload — compact strip below */}
-        <div className="tl-img-strip">
-          <ImageUpload
-            images={initComment?.images || []}
-            uploadUrl={`/api/trades/${tradeId}/comments/${date}/images`}
-            deleteUrlFn={fname => `/api/trades/${tradeId}/comments/${date}/images/${fname}`}
-            onImagesChange={onImagesChange}
-          />
         </div>
       </div>
     </div>
@@ -350,8 +350,8 @@ export default function TradeDetail() {
             <div className="tl-nifty-col tl-col-header">NIFTY</div>
             <div className="tl-comment-col tl-col-header">Emotion &amp; Notes</div>
           </div>
-          {dates.map((date, i) => {
-            const marker = i === 0 ? 'ENTRY'
+          {[...dates].reverse().map((date) => {
+            const marker = date === trade.date ? 'ENTRY'
               : (trade.close_date && date === trade.close_date) ? 'EXIT'
               : (!trade.close_date && date === today) ? 'TODAY'
               : 'ACTIVE';
