@@ -1258,52 +1258,52 @@ textarea { resize: vertical; }
   .trades-table tr.data-row.dimmed          { opacity: 0.35; pointer-events: none; }
   .trades-table tbody tr.dimmed td          { opacity: 1; }
   /* Undo per-td backgrounds set by desktop rules */
-  .trades-table tbody tr.data-row:hover td       { background: transparent; }
-  .trades-table tbody tr.data-row.selected td    { background: transparent; }
+  .trades-table tbody tr.data-row:hover > td       { background: transparent; }
+  .trades-table tbody tr.data-row.selected > td    { background: transparent; }
 
   /* All tds: reset to block, no padding/border */
-  .trades-table tr.data-row td { display: block; padding: 0; border: none; vertical-align: unset; }
+  .trades-table tr.data-row > td { display: block; padding: 0; border: none; vertical-align: unset; }
 
   /* Row 1 left — Date */
-  .trades-table tr.data-row td:nth-child(1) {
+  .trades-table tr.data-row > td:nth-child(1) {
     grid-column: 1; grid-row: 1;
     font-size: 12px; color: var(--muted); white-space: nowrap;
   }
   /* Row 1 right — Status badge */
-  .trades-table tr.data-row td:nth-child(7) {
+  .trades-table tr.data-row > td:nth-child(7) {
     grid-column: 2; grid-row: 1;
     text-align: right;
   }
   /* Row 2 left — Instrument */
-  .trades-table tr.data-row td:nth-child(2) {
+  .trades-table tr.data-row > td:nth-child(2) {
     grid-column: 1; grid-row: 2;
     font-size: 17px; font-weight: 700; margin-top: 2px;
   }
   /* Row 2 right — Strategy */
-  .trades-table tr.data-row td:nth-child(3) {
+  .trades-table tr.data-row > td:nth-child(3) {
     grid-column: 2; grid-row: 2;
     font-size: 12px; color: var(--muted); text-align: right;
     margin-top: 2px; align-self: center;
   }
   /* Row 3 — Legs full width */
-  .trades-table tr.data-row td:nth-child(4) {
+  .trades-table tr.data-row > td:nth-child(4) {
     grid-column: 1 / -1; grid-row: 3;
     margin-top: 8px; margin-bottom: 4px;
   }
   /* Row 4 left — Net Premium */
-  .trades-table tr.data-row td:nth-child(5) {
+  .trades-table tr.data-row > td:nth-child(5) {
     grid-column: 1; grid-row: 4;
     font-size: 13px; text-align: left !important;
   }
   /* Row 4 right — P&L */
-  .trades-table tr.data-row td:nth-child(6) {
+  .trades-table tr.data-row > td:nth-child(6) {
     grid-column: 2; grid-row: 4;
     font-size: 14px; text-align: right !important;
   }
 
-  /* Edit row: full-width block under the card */
-  .trades-table tr.edit-row         { display: block; }
-  .trades-table tr.edit-row td      { display: block; padding: 0; border: none; }
+  /* Edit row: only the direct td wrapping EditPanel gets display:block */
+  .trades-table tr.edit-row          { display: block; }
+  .trades-table tr.edit-row > td     { display: block; padding: 0; border: none; }
 
   /* Edit panel: fields wrap to 2-col on mobile */
   .edit-panel { padding: 12px 12px 14px; }
