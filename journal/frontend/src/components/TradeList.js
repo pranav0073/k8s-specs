@@ -1,12 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import ImportModal from './ImportModal';
 
-const LOT_SIZE   = 65;
+const LOT_SIZE = 65;
 const EMPTY_FILTERS = { instrument: '', strategy: '', status: '', from: '', to: '' };
+const STRATEGIES = [
+  'Calendar Spread', 'Bull Put Spread', 'Bear Call Spread',
+  'Iron Condor', 'Straddle', 'Strangle', 'Butterfly',
+  'Ratio Spread', 'Jade Lizard', 'Naked',
+];
 
-// ── Leg pill (read-only display) ────────────────────────────────────────
+// ── Leg pill (read-only) ─────────────────────────────────────────────────
 function LegPill({ leg }) {
   const isBuy = leg.side === 'B';
   return (
@@ -38,7 +43,7 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
     status:     trade.status,
     close_date: trade.close_date || '',
     notes:      trade.notes || '',
-    legs:       trade.legs.map(l => ({
+    legs: trade.legs.map(l => ({
       side:        l.side,
       strike:      l.strike,
       type:        l.type,
@@ -49,7 +54,7 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
     })),
   });
 
-  const set   = (field, val) => setData(d => ({ ...d, [field]: val }));
+  const set    = (field, val) => setData(d => ({ ...d, [field]: val }));
   const setLeg = (idx, field, val) =>
     setData(d => ({ ...d, legs: d.legs.map((l, i) => i === idx ? { ...l, [field]: val } : l) }));
   const addLeg = () =>
@@ -58,7 +63,7 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
     setData(d => ({ ...d, legs: d.legs.filter((_, i) => i !== idx) }));
 
   const handleSave = () => {
-    const payload = {
+    onSave({
       ...data,
       legs: data.legs.map(l => ({
         ...l,
@@ -67,128 +72,123 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
         entry_price: Number(l.entry_price),
         exit_price:  l.exit_price !== '' && l.exit_price != null ? Number(l.exit_price) : null,
       })),
-    };
-    onSave(payload);
+    });
   };
 
-  // preview P&L
   const previewPnl = data.status === 'closed'
     ? data.legs.reduce((sum, l) => {
         const ep = Number(l.exit_price);
         if (isNaN(ep) || l.exit_price === '') return sum;
-        const mult = l.side === 'B' ? 1 : -1;
-        return sum + (ep - Number(l.entry_price)) * LOT_SIZE * Number(l.lots) * mult;
+        return sum + (ep - Number(l.entry_price)) * LOT_SIZE * Number(l.lots) * (l.side === 'B' ? 1 : -1);
       }, 0)
     : null;
 
   return (
     <div className="edit-panel" onClick={e => e.stopPropagation()}>
-      {/* Basic fields */}
-      <div className="edit-field">
-        <label className="edit-label">Date</label>
-        <input className="edit-input" type="date" value={data.date}
-          onChange={e => set('date', e.target.value)} />
-      </div>
-      <div className="edit-field">
-        <label className="edit-label">Instrument</label>
-        <select className="edit-input" value={data.instrument}
-          onChange={e => set('instrument', e.target.value)}>
-          <option>NIFTY</option>
-          <option>BANKNIFTY</option>
-          <option>FINNIFTY</option>
-          <option>MIDCPNIFTY</option>
-        </select>
-      </div>
-      <div className="edit-field">
-        <label className="edit-label">Strategy</label>
-        <input className="edit-input" placeholder="e.g. Scalp, Swing…"
-          value={data.strategy} onChange={e => set('strategy', e.target.value)} />
-      </div>
-      <div className="edit-field">
-        <label className="edit-label">Status</label>
-        <select className="edit-input" value={data.status}
-          onChange={e => set('status', e.target.value)}>
-          <option value="open">open</option>
-          <option value="closed">closed</option>
-        </select>
-      </div>
-      <div className="edit-field">
-        <label className="edit-label">Close Date</label>
-        <input className="edit-input" type="date" value={data.close_date}
-          onChange={e => set('close_date', e.target.value)} />
-      </div>
-      <div className="edit-field" style={{ gridColumn: 'span 2' }}>
-        <label className="edit-label">Notes</label>
-        <input className="edit-input" placeholder="Trade notes…"
-          value={data.notes} onChange={e => set('notes', e.target.value)} />
+
+      {/* ── Header row ── */}
+      <div className="ep-header">
+        <span className="ep-title">Edit Trade</span>
+        <Link to={`/trades/${trade.id}`} className="ep-detail-link">
+          Open full detail →
+        </Link>
       </div>
 
-      {/* Legs */}
-      <div className="edit-legs-section">
-        <div className="edit-legs-label">Legs</div>
-        <table className="edit-legs-table">
+      {/* ── Fields grid ── */}
+      <div className="ep-fields">
+        <div className="ep-field">
+          <label>Date</label>
+          <input type="date" value={data.date} onChange={e => set('date', e.target.value)} />
+        </div>
+        <div className="ep-field">
+          <label>Instrument</label>
+          <select value={data.instrument} onChange={e => set('instrument', e.target.value)}>
+            <option>NIFTY</option><option>BANKNIFTY</option>
+            <option>FINNIFTY</option><option>MIDCPNIFTY</option>
+          </select>
+        </div>
+        <div className="ep-field ep-field-wide">
+          <label>Strategy</label>
+          <input list="ep-strat-list" value={data.strategy}
+            onChange={e => set('strategy', e.target.value)} placeholder="Select or type…" />
+          <datalist id="ep-strat-list">
+            {STRATEGIES.map(s => <option key={s} value={s} />)}
+          </datalist>
+        </div>
+        <div className="ep-field">
+          <label>Status</label>
+          <select value={data.status} onChange={e => set('status', e.target.value)}>
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+          </select>
+        </div>
+        <div className="ep-field">
+          <label>Close Date</label>
+          <input type="date" value={data.close_date} onChange={e => set('close_date', e.target.value)} />
+        </div>
+        <div className="ep-field ep-field-full">
+          <label>Notes</label>
+          <input value={data.notes} onChange={e => set('notes', e.target.value)} placeholder="Trade notes…" />
+        </div>
+      </div>
+
+      {/* ── Legs ── */}
+      <div className="ep-legs-section">
+        <div className="ep-section-label">Legs</div>
+        <table className="ep-legs-table">
           <thead>
             <tr>
-              <th>Side</th>
-              <th>Strike</th>
-              <th>Type</th>
-              <th>Expiry</th>
-              <th>Lots</th>
-              <th>Entry ₹</th>
-              <th>Exit ₹</th>
-              <th></th>
+              <th>Side</th><th>Strike</th><th>Type</th>
+              <th>Expiry</th><th>Lots</th><th>Entry ₹</th><th>Exit ₹</th><th></th>
             </tr>
           </thead>
           <tbody>
             {data.legs.map((leg, i) => (
               <tr key={i} className={leg.side === 'B' ? 'buy-row' : 'sell-row'}>
                 <td>
-                  <select value={leg.side} onChange={e => setLeg(i, 'side', e.target.value)} style={{ width: 54 }}>
-                    <option value="B">B</option>
-                    <option value="S">S</option>
+                  <select value={leg.side} onChange={e => setLeg(i, 'side', e.target.value)} style={{ width: 52 }}>
+                    <option value="B">B</option><option value="S">S</option>
                   </select>
                 </td>
-                <td><input type="number" value={leg.strike} onChange={e => setLeg(i, 'strike', e.target.value)} style={{ width: 80 }} /></td>
+                <td><input type="number" value={leg.strike} onChange={e => setLeg(i, 'strike', e.target.value)} style={{ width: 78 }} /></td>
                 <td>
-                  <select value={leg.type} onChange={e => setLeg(i, 'type', e.target.value)} style={{ width: 56 }}>
-                    <option>CE</option>
-                    <option>PE</option>
+                  <select value={leg.type} onChange={e => setLeg(i, 'type', e.target.value)} style={{ width: 54 }}>
+                    <option>CE</option><option>PE</option>
                   </select>
                 </td>
-                <td><input value={leg.expiry} onChange={e => setLeg(i, 'expiry', e.target.value)} style={{ width: 72 }} /></td>
-                <td><input type="number" value={leg.lots} onChange={e => setLeg(i, 'lots', e.target.value)} style={{ width: 54 }} /></td>
-                <td><input type="number" step="0.05" value={leg.entry_price} onChange={e => setLeg(i, 'entry_price', e.target.value)} style={{ width: 80 }} /></td>
-                <td><input type="number" step="0.05" value={leg.exit_price} onChange={e => setLeg(i, 'exit_price', e.target.value)} placeholder="—" style={{ width: 80 }} /></td>
+                <td><input value={leg.expiry} onChange={e => setLeg(i, 'expiry', e.target.value)} style={{ width: 68 }} /></td>
+                <td><input type="number" value={leg.lots} onChange={e => setLeg(i, 'lots', e.target.value)} style={{ width: 50 }} /></td>
+                <td><input type="number" step="0.05" value={leg.entry_price} onChange={e => setLeg(i, 'entry_price', e.target.value)} style={{ width: 76 }} /></td>
+                <td><input type="number" step="0.05" value={leg.exit_price} onChange={e => setLeg(i, 'exit_price', e.target.value)} placeholder="—" style={{ width: 76 }} /></td>
                 <td>
-                  <button className="btn btn-ghost btn-sm"
-                    style={{ color: 'var(--red)', padding: '2px 7px', fontSize: 15 }}
-                    onClick={() => removeLeg(i)}>×</button>
+                  <button className="ep-remove-leg" onClick={() => removeLeg(i)} title="Remove leg">×</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button className="btn btn-ghost btn-sm" onClick={addLeg}>+ Add leg</button>
-        {previewPnl != null && (
-          <span style={{ marginLeft: 12, fontSize: 12, fontWeight: 700,
-            color: previewPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            P&L preview: {previewPnl >= 0 ? '+' : ''}₹{Math.round(previewPnl).toLocaleString('en-IN')}
-          </span>
-        )}
+        <div className="ep-legs-footer">
+          <button className="btn btn-ghost btn-sm" onClick={addLeg}>+ Add leg</button>
+          {previewPnl != null && (
+            <span className={`ep-pnl-preview ${previewPnl >= 0 ? 'pos' : 'neg'}`}>
+              P&L: {previewPnl >= 0 ? '+' : ''}₹{Math.round(previewPnl).toLocaleString('en-IN')}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="edit-actions">
-        <button className="btn btn-sm btn-danger" onClick={onDelete}>Delete trade</button>
+      {/* ── Actions ── */}
+      <div className="ep-actions">
+        <button className="btn btn-sm ep-delete" onClick={onDelete}>Delete trade</button>
         <span className="spacer" />
-        <button className="btn btn-sm btn-ghost" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-sm btn-primary" onClick={handleSave}>Save changes</button>
+        <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-sm ep-save" onClick={handleSave}>Save changes</button>
       </div>
     </div>
   );
 }
 
-// ── Main component ───────────────────────────────────────────────────────
+// ── Main list ────────────────────────────────────────────────────────────
 export default function TradeList() {
   const [trades,      setTrades]      = useState([]);
   const [filters,     setFilters]     = useState(EMPTY_FILTERS);
@@ -208,9 +208,7 @@ export default function TradeList() {
 
   useEffect(() => { fetchTrades(); }, []); // eslint-disable-line
 
-  const handleRowClick = (id) => {
-    setExpandedId(prev => prev === id ? null : id);
-  };
+  const handleRowClick = (id) => setExpandedId(prev => prev === id ? null : id);
 
   const handleSave = async (id, payload) => {
     await axios.put(`/api/trades/${id}`, payload);
@@ -248,10 +246,8 @@ export default function TradeList() {
       <div className="filters">
         <select value={filters.instrument} onChange={set('instrument')}>
           <option value="">All Instruments</option>
-          <option>NIFTY</option>
-          <option>BANKNIFTY</option>
-          <option>FINNIFTY</option>
-          <option>MIDCPNIFTY</option>
+          <option>NIFTY</option><option>BANKNIFTY</option>
+          <option>FINNIFTY</option><option>MIDCPNIFTY</option>
         </select>
         <input placeholder="Strategy" value={filters.strategy} onChange={set('strategy')} style={{ width: 150 }} />
         <select value={filters.status} onChange={set('status')}>
@@ -294,6 +290,7 @@ export default function TradeList() {
                   <tr
                     className={`data-row${isExpanded ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}`}
                     onClick={() => handleRowClick(t.id)}
+                    title="Click to edit · Open full detail from edit panel"
                   >
                     <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 13 }}>{t.date}</td>
                     <td style={{ fontWeight: 700 }}>{t.instrument}</td>

@@ -207,22 +207,60 @@ td.actions   { display: flex; gap: 4px; }
 .edit-row td {
   padding: 0 !important;
   border-top: none !important;
-  background: #f8f9ff !important;
+  background: var(--surface2) !important;
 }
 .edit-panel {
-  padding: 16px 20px 18px;
   border-top: 2px solid var(--blue);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  padding: 14px 20px 16px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
-.edit-field { display: flex; flex-direction: column; gap: 4px; }
-.edit-label {
+
+/* header row inside panel */
+.ep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.ep-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--blue);
+}
+.ep-detail-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  text-decoration: none;
+  padding: 3px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 5px;
+  background: var(--buy-bg);
+  transition: all 0.12s;
+}
+.ep-detail-link:hover { background: #dbeafe; border-color: var(--blue); }
+
+/* compact fields row */
+.ep-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: flex-end;
+}
+.ep-field { display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+.ep-field-wide { min-width: 160px; }
+.ep-field-full { flex: 1 0 100%; }
+.ep-field label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--muted);
 }
-.edit-input {
-  padding: 6px 10px;
+.ep-field input,
+.ep-field select {
+  padding: 5px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 13px;
@@ -230,41 +268,57 @@ td.actions   { display: flex; gap: 4px; }
   background: #fff;
   color: var(--text);
   transition: border-color 0.12s;
+  height: 32px;
 }
-.edit-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.ep-field input:focus,
+.ep-field select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
 
-.edit-legs-section { grid-column: 1 / -1; }
-.edit-legs-label {
+/* legs section */
+.ep-legs-section { display: flex; flex-direction: column; gap: 6px; }
+.ep-section-label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px;
+  letter-spacing: 0.07em; color: var(--muted);
 }
-.edit-legs-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
-.edit-legs-table th {
-  background: #fff; color: var(--muted); font-size: 10px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.05em;
-  padding: 5px 7px; text-align: left; border-bottom: 1px solid var(--border);
+.ep-legs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ep-legs-table th {
+  color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 4px 6px; text-align: left;
+  border-bottom: 1px solid var(--border); background: transparent;
 }
-.edit-legs-table td { padding: 4px 5px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-.edit-legs-table tr:last-child td { border-bottom: none; }
-.edit-legs-table input, .edit-legs-table select {
-  border: 1px solid var(--border); border-radius: 5px;
-  padding: 4px 7px; font-size: 12px; font-family: inherit;
-  background: #fff; width: 100%; color: var(--text);
+.ep-legs-table td { padding: 3px 4px; border-bottom: 1px solid #efefef; vertical-align: middle; }
+.ep-legs-table tr:last-child td { border-bottom: none; }
+.ep-legs-table input, .ep-legs-table select {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px 6px; font-size: 12px; font-family: inherit;
+  background: #fff; width: 100%; color: var(--text); height: 28px;
 }
-.edit-legs-table input:focus, .edit-legs-table select:focus { outline: none; border-color: var(--blue); }
-.edit-legs-table tr.buy-row  { background: #fafcff; }
-.edit-legs-table tr.sell-row { background: #fffafa; }
+.ep-legs-table input:focus, .ep-legs-table select:focus { outline: none; border-color: var(--blue); }
+.ep-legs-table tr.buy-row  { background: #fafcff; }
+.ep-legs-table tr.sell-row { background: #fffafa; }
+.ep-remove-leg {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.ep-remove-leg:hover { color: var(--red); }
 
-.edit-actions {
-  grid-column: 1 / -1;
+.ep-legs-footer { display: flex; align-items: center; gap: 14px; }
+.ep-pnl-preview { font-size: 12px; font-weight: 700; }
+.ep-pnl-preview.pos { color: var(--green); }
+.ep-pnl-preview.neg { color: var(--red); }
+
+/* action bar */
+.ep-actions {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
-  margin-top: 4px;
 }
-.edit-actions .spacer { flex: 1; }
+.ep-actions .spacer { flex: 1; }
+.ep-delete { color: var(--red) !important; border-color: transparent !important; background: transparent !important; }
+.ep-delete:hover { background: #fff1f2 !important; }
+.ep-save { background: var(--text) !important; border-color: var(--text) !important; color: #fff !important; }
+.ep-save:hover { background: #333 !important; }
 
 /* ── Option leg badges ────────────────────── */
 .leg-badge {
