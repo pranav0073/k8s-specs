@@ -51,4 +51,16 @@ db.exec(`
   )
 `);
 
+// Migration: add images column to market_sessions
+const sessionCols = db.prepare('PRAGMA table_info(market_sessions)').all();
+if (!sessionCols.find(c => c.name === 'images')) {
+  db.exec("ALTER TABLE market_sessions ADD COLUMN images TEXT DEFAULT '[]'");
+}
+
+// Migration: add images column to trade_comments
+const commentCols = db.prepare('PRAGMA table_info(trade_comments)').all();
+if (!commentCols.find(c => c.name === 'images')) {
+  db.exec("ALTER TABLE trade_comments ADD COLUMN images TEXT DEFAULT '[]'");
+}
+
 module.exports = db;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import ImageUpload from './ImageUpload';
 
 function localDateStr(date = new Date()) {
   const y = date.getFullYear();
@@ -195,6 +196,22 @@ export default function MarketDiary() {
                   {saving ? 'Saving…' : 'Save Session'}
                 </button>
                 {saved && <span className="save-ok">✓ Saved</span>}
+              </div>
+
+              <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 8 }}>
+                  Chart Screenshots
+                </label>
+                <ImageUpload
+                  images={sessionData?.images || []}
+                  uploadUrl={`/api/sessions/${selectedDate}/images`}
+                  deleteUrlFn={fname => `/api/sessions/${selectedDate}/images/${fname}`}
+                  onImagesChange={() =>
+                    axios.get(`/api/sessions/${selectedDate}`)
+                      .then(r => setSessionData(r.data))
+                      .catch(() => {})
+                  }
+                />
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ImageUpload from './ImageUpload';
 
 const LOT_SIZE = 65;
 
@@ -66,7 +67,7 @@ function calcPnl(legs) {
 }
 
 // ── Timeline Row ──────────────────────────────────────────────────────────────
-function TimelineRow({ date, marker, session, comment: initComment, onSave }) {
+function TimelineRow({ date, marker, session, comment: initComment, onSave, tradeId, onImagesChange }) {
   const [comment, setComment] = useState(initComment?.comment || '');
   const [emotion, setEmotion] = useState(initComment?.emotion || '');
   const [saving, setSaving]   = useState(false);
@@ -161,6 +162,14 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave }) {
             {saving ? 'Saving…' : 'Save'}
           </button>
           {saved && <span className="save-ok">✓ Saved</span>}
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <ImageUpload
+            images={initComment?.images || []}
+            uploadUrl={`/api/trades/${tradeId}/comments/${date}/images`}
+            deleteUrlFn={fname => `/api/trades/${tradeId}/comments/${date}/images/${fname}`}
+            onImagesChange={onImagesChange}
+          />
         </div>
       </div>
     </div>
@@ -338,6 +347,8 @@ export default function TradeDetail() {
                 session={sessions[date] || null}
                 comment={commentByDate[date] || null}
                 onSave={handleSaveComment}
+                tradeId={id}
+                onImagesChange={loadComments}
               />
             );
           })}
