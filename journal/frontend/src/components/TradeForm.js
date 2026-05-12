@@ -164,6 +164,7 @@ export default function TradeForm() {
         {/* ── Legs ── */}
         <div className="form-card">
           <h3>Legs</h3>
+          <div className="legs-table-wrap">
           <table className="legs-table">
             <thead>
               <tr>
@@ -246,6 +247,7 @@ export default function TradeForm() {
               ))}
             </tbody>
           </table>
+          </div>
 
           <button type="button" className="btn btn-secondary btn-sm" onClick={addLeg}>+ Add Leg</button>
 

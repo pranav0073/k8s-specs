@@ -269,6 +269,7 @@ export default function TradeList() {
           <p>Add your first options trade or import from a broker CSV.</p>
         </div>
       ) : (
+        <div className="table-scroll-wrap">
         <table className="trades-table">
           <thead>
             <tr>
@@ -324,6 +325,7 @@ export default function TradeList() {
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {showImport && (
