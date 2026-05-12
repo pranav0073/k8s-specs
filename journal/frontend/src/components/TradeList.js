@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import ImportModal from './ImportModal';
 
 const EMPTY_FILTERS = { instrument: '', strategy: '', status: '', from: '', to: '' };
 
@@ -17,9 +18,11 @@ function LegsSummary({ legs }) {
 }
 
 export default function TradeList() {
-  const [trades, setTrades]   = useState([]);
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [loading, setLoading] = useState(true);
+  const [trades,      setTrades]      = useState([]);
+  const [filters,     setFilters]     = useState(EMPTY_FILTERS);
+  const [loading,     setLoading]     = useState(true);
+  const [showImport,  setShowImport]  = useState(false);
+  const [importToast, setImportToast] = useState('');
 
   const fetchTrades = useCallback(() => {
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
@@ -37,14 +40,25 @@ export default function TradeList() {
     setTrades(p => p.filter(t => t.id !== id));
   };
 
+  const handleImported = (count) => {
+    fetchTrades();
+    setImportToast(`${count} trade${count !== 1 ? 's' : ''} imported successfully.`);
+    setTimeout(() => setImportToast(''), 4000);
+  };
+
   const set = key => e => setFilters(f => ({ ...f, [key]: e.target.value }));
 
   return (
     <div>
       <div className="page-header">
         <h1>Trades</h1>
-        <Link to="/trades/new" className="btn btn-primary">+ Add Trade</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => setShowImport(true)}>Import CSV</button>
+          <Link to="/trades/new" className="btn btn-primary">+ Add Trade</Link>
+        </div>
       </div>
+
+      {importToast && <div className="import-toast">{importToast}</div>}
 
       <div className="filters">
         <select value={filters.instrument} onChange={set('instrument')}>
@@ -71,7 +85,7 @@ export default function TradeList() {
       ) : trades.length === 0 ? (
         <div className="empty-state">
           <h2>No trades found</h2>
-          <p>Add your first options trade to get started.</p>
+          <p>Add your first options trade or import from a broker CSV.</p>
         </div>
       ) : (
         <table className="trades-table">
@@ -112,6 +126,13 @@ export default function TradeList() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImported={handleImported}
+        />
       )}
     </div>
   );
