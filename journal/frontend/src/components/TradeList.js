@@ -4,7 +4,7 @@ import axios from 'axios';
 import ImportModal from './ImportModal';
 
 const LOT_SIZE = 65;
-const EMPTY_FILTERS = { instrument: '', strategy: '', status: '', from: '', to: '' };
+const EMPTY_FILTERS = { instrument: '', strategy: '', status: 'open', from: '', to: '' };
 const STRATEGIES = [
   'Calendar Spread', 'Bull Put Spread', 'Bear Call Spread',
   'Iron Condor', 'Straddle', 'Strangle', 'Butterfly',
