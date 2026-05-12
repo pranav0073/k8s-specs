@@ -106,19 +106,118 @@ router.get('/stats', (req, res) => {
     .map(([strategy, pnl]) => ({ strategy, pnl: Math.round(pnl * 100) / 100 }))
     .sort((a, b) => b.pnl - a.pnl);
 
+  // ── Discipline metrics ──────────────────────────────────────────────────
+  const grossProfit = winners.reduce((s, t) => s + t.pnl, 0);
+  const grossLoss   = Math.abs(losers.reduce((s, t) => s + t.pnl, 0));
+  const profitFactor = grossLoss > 0 ? Math.round((grossProfit / grossLoss) * 100) / 100 : null;
+  const expectancy   = total > 0
+    ? Math.round(((winners.length / total) * avgWin + (losers.length / total) * avgLoss) * 100) / 100
+    : null;
+
+  // Max drawdown from equity curve
+  let peak = 0, maxDrawdown = 0;
+  for (const pt of equityCurve) {
+    if (pt.pnl > peak) peak = pt.pnl;
+    const dd = peak - pt.pnl;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+  }
+
+  // Win/loss streaks
+  const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date));
+  let ws = 0, ls = 0, maxWinStreak = 0, maxLossStreak = 0;
+  for (const t of sorted) {
+    if ((t.pnl || 0) > 0) { ws++; ls = 0; if (ws > maxWinStreak) maxWinStreak = ws; }
+    else                   { ls++; ws = 0; if (ls > maxLossStreak) maxLossStreak = ls; }
+  }
+
+  // Avg hold duration (days)
+  const withClose = trades.filter(t => t.close_date && t.date);
+  const avgHoldDays = withClose.length > 0
+    ? Math.round(withClose.reduce((s, t) => {
+        const [y1,m1,d1] = t.date.split('-').map(Number);
+        const [y2,m2,d2] = t.close_date.split('-').map(Number);
+        return s + (new Date(y2,m2-1,d2) - new Date(y1,m1-1,d1)) / 86400000;
+      }, 0) / withClose.length * 10) / 10
+    : null;
+
+  // Win rate by strategy
+  const stratMap = {};
+  trades.forEach(t => {
+    const key = t.strategy || 'Other';
+    if (!stratMap[key]) stratMap[key] = { trades: 0, wins: 0, pnl: 0 };
+    stratMap[key].trades++;
+    if ((t.pnl || 0) > 0) stratMap[key].wins++;
+    stratMap[key].pnl += (t.pnl || 0);
+  });
+  const winByStrategy = Object.entries(stratMap)
+    .map(([strategy, s]) => ({
+      strategy,
+      trades:  s.trades,
+      wins:    s.wins,
+      winRate: Math.round((s.wins / s.trades) * 100),
+      pnl:     Math.round(s.pnl * 100) / 100,
+    }))
+    .sort((a, b) => b.trades - a.trades);
+
+  // P&L by instrument
+  const instrMap = {};
+  trades.forEach(t => {
+    if (!instrMap[t.instrument]) instrMap[t.instrument] = { trades: 0, wins: 0, pnl: 0 };
+    instrMap[t.instrument].trades++;
+    if ((t.pnl || 0) > 0) instrMap[t.instrument].wins++;
+    instrMap[t.instrument].pnl += (t.pnl || 0);
+  });
+  const pnlByInstrument = Object.entries(instrMap)
+    .map(([instrument, s]) => ({
+      instrument,
+      trades:  s.trades,
+      winRate: Math.round((s.wins / s.trades) * 100),
+      pnl:     Math.round(s.pnl * 100) / 100,
+    }))
+    .sort((a, b) => b.trades - a.trades);
+
+  // Trades by day of week
+  const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dowMap = {};
+  trades.forEach(t => {
+    const [y,m,d] = t.date.split('-').map(Number);
+    const day = DOW[new Date(y, m-1, d).getDay()];
+    if (!dowMap[day]) dowMap[day] = { trades: 0, wins: 0, pnl: 0 };
+    dowMap[day].trades++;
+    if ((t.pnl || 0) > 0) dowMap[day].wins++;
+    dowMap[day].pnl += (t.pnl || 0);
+  });
+  const tradesByDow = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+    .filter(day => dowMap[day])
+    .map(day => ({
+      day,
+      trades:  dowMap[day].trades,
+      winRate: Math.round((dowMap[day].wins / dowMap[day].trades) * 100),
+      pnl:     Math.round(dowMap[day].pnl * 100) / 100,
+    }));
+
   res.json({
     total,
-    totalPnl:    Math.round(totalPnl * 100) / 100,
-    winRate:     Math.round(winRate * 10) / 10,
-    winners:     winners.length,
-    losers:      losers.length,
-    avgWin:      Math.round(avgWin * 100) / 100,
-    avgLoss:     Math.round(avgLoss * 100) / 100,
+    totalPnl:      Math.round(totalPnl * 100) / 100,
+    winRate:       Math.round(winRate * 10) / 10,
+    winners:       winners.length,
+    losers:        losers.length,
+    avgWin:        Math.round(avgWin * 100) / 100,
+    avgLoss:       Math.round(avgLoss * 100) / 100,
+    profitFactor,
+    expectancy,
+    maxDrawdown:   Math.round(maxDrawdown * 100) / 100,
+    maxWinStreak,
+    maxLossStreak,
+    avgHoldDays,
     bestTrade,
     worstTrade,
     equityCurve,
     pnlByMonth,
     pnlByStrategy,
+    winByStrategy,
+    pnlByInstrument,
+    tradesByDow,
   });
 });
 
