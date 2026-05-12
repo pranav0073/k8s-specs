@@ -124,8 +124,10 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave, trad
               &nbsp;L:{session.low?.toLocaleString('en-IN') || '—'}
             </div>
             {rangeSpan != null && (
-              <div className="tl-range-bar">
-                <div className="tl-range-fill" style={{ width: `${Math.min(100, (rangeSpan / 300) * 100)}%` }} />
+              <div className="tl-range-wrap">
+                <div className="tl-range-bar">
+                  <div className="tl-range-fill" style={{ width: `${Math.min(100, (rangeSpan / 300) * 100)}%` }} />
+                </div>
                 <span className="tl-range-label">Range: {rangeSpan.toFixed(0)} pts</span>
               </div>
             )}
@@ -136,40 +138,54 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave, trad
         )}
       </div>
 
-      {/* Emotion + comment */}
+      {/* Emotion + comment — vertical emotion strip on left, textarea on right */}
       <div className="tl-comment-col">
-        <div className="tl-emotion-row">
-          {EMOTIONS.map(e => (
-            <button
-              key={e.key}
-              title={e.label}
-              className={`emotion-btn${emotion === e.key ? ' selected' : ''}`}
-              onClick={() => setEmotion(prev => prev === e.key ? '' : e.key)}
-            >
-              {e.emoji}
-            </button>
-          ))}
-        </div>
-        <textarea
-          className="tl-comment-input"
-          rows={2}
-          placeholder="Notes for this day…"
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-        />
-        <div className="tl-save-row">
-          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          {saved && <span className="save-ok">✓ Saved</span>}
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <ImageUpload
-            images={initComment?.images || []}
-            uploadUrl={`/api/trades/${tradeId}/comments/${date}/images`}
-            deleteUrlFn={fname => `/api/trades/${tradeId}/comments/${date}/images/${fname}`}
-            onImagesChange={onImagesChange}
-          />
+        <div className="tl-emotion-notes">
+          {/* Vertical emotion picker */}
+          <div className="tl-emotions-vert">
+            {EMOTIONS.map(e => (
+              <button
+                key={e.key}
+                title={e.label}
+                className={`emotion-btn${emotion === e.key ? ' selected' : ''}`}
+                onClick={() => setEmotion(prev => prev === e.key ? '' : e.key)}
+              >
+                {e.emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* Notes: textarea fills to last emotion, save+upload share one line */}
+          <div className="tl-notes-area">
+            <textarea
+              className="tl-comment-input"
+              placeholder="Notes for this day…"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+            />
+            <div className="tl-bottom-row">
+              <div className="tl-save-actions">
+                <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                {saved && <span className="save-ok">✓ Saved</span>}
+                {emotion && (
+                  <span className="tl-emotion-label">
+                    {EMOTIONS.find(e => e.key === emotion)?.emoji}{' '}
+                    {EMOTIONS.find(e => e.key === emotion)?.label}
+                  </span>
+                )}
+              </div>
+              <div className="tl-upload-inline">
+                <ImageUpload
+                  images={initComment?.images || []}
+                  uploadUrl={`/api/trades/${tradeId}/comments/${date}/images`}
+                  deleteUrlFn={fname => `/api/trades/${tradeId}/comments/${date}/images/${fname}`}
+                  onImagesChange={onImagesChange}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -334,8 +350,8 @@ export default function TradeDetail() {
             <div className="tl-nifty-col tl-col-header">NIFTY</div>
             <div className="tl-comment-col tl-col-header">Emotion &amp; Notes</div>
           </div>
-          {dates.map((date, i) => {
-            const marker = i === 0 ? 'ENTRY'
+          {[...dates].reverse().map((date) => {
+            const marker = date === trade.date ? 'ENTRY'
               : (trade.close_date && date === trade.close_date) ? 'EXIT'
               : (!trade.close_date && date === today) ? 'TODAY'
               : 'ACTIVE';
