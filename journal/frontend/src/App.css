@@ -1105,6 +1105,105 @@ textarea { resize: vertical; }
   background: var(--surface2);
 }
 
+/* ── Stat card sub-label ──────────────────────────────────────────────────── */
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ── Discipline Insights ──────────────────────────────────────────────────── */
+.insights-section h2 { margin-bottom: 12px; }
+.insights-list { display: flex; flex-direction: column; gap: 8px; }
+
+.insight-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  border: 1px solid transparent;
+}
+.insight-icon {
+  font-size: 12px;
+  font-weight: 800;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.insight-text { flex: 1; }
+
+.insight-good   { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+.insight-good   .insight-icon { background: #16a34a; color: #fff; }
+.insight-warn   { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+.insight-warn   .insight-icon { background: #d97706; color: #fff; }
+.insight-danger { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+.insight-danger .insight-icon { background: #dc2626; color: #fff; }
+.insight-info   { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
+.insight-info   .insight-icon { background: #2563eb; color: #fff; font-style: italic; }
+
+/* ── Day-of-week win rate row ─────────────────────────────────────────────── */
+.dow-wrap { display: flex; flex-direction: column; gap: 6px; }
+.dow-wr-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 0 10px;
+}
+.dow-wr-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 44px;
+}
+.dow-wr-pct  { font-size: 12px; font-weight: 700; }
+.dow-wr-label { font-size: 10px; color: var(--muted); }
+
+/* ── Strategy performance table ───────────────────────────────────────────── */
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.analytics-table th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.analytics-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.analytics-table tbody tr:last-child td { border-bottom: none; }
+.analytics-table tbody tr:hover td { background: var(--row-hover); }
+
+.wr-bar-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: flex-end;
+}
+.wr-bar-fill {
+  display: inline-block;
+  height: 6px;
+  border-radius: 3px;
+  max-width: 80px;
+  min-width: 4px;
+  flex-shrink: 0;
+}
+.wr-bar-label { font-size: 12px; font-weight: 700; width: 34px; text-align: right; flex-shrink: 0; }
+
 /* ── Mobile responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
 
