@@ -98,9 +98,22 @@ export default function ImageUpload({ images, uploadUrl, deleteUrlFn, onImagesCh
 
 function readAsBase64(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = e => resolve(e.target.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      // Scale down if wider than 2400px (keeps chart readable, cuts file size)
+      const MAX = 2400;
+      const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      // JPEG at 85% quality — good enough for chart screenshots
+      const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      resolve(base64);
+    };
+    img.onerror = reject;
+    img.src = url;
   });
 }
