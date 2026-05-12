@@ -1104,3 +1104,113 @@ textarea { resize: vertical; }
   border-top: 1px solid var(--border);
   background: var(--surface2);
 }
+
+/* ── Mobile responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Navbar: scrollable links row */
+  .navbar { padding: 0 14px; gap: 10px; }
+  .navbar-links {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .navbar-links::-webkit-scrollbar { display: none; }
+  .navbar-links a { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+  .navbar-links a.add-btn { margin-left: 4px; }
+
+  /* Main content padding */
+  .main-content { padding: 14px; }
+
+  /* Page header: stack on small screens */
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header > div { width: 100%; display: flex; gap: 8px; }
+  .page-header > div .btn { flex: 1; justify-content: center; }
+
+  /* Filters: full-width inputs */
+  .filters { gap: 6px; }
+  .filters input,
+  .filters select { flex: 1; min-width: 0; }
+
+  /* Trades table: horizontal scroll container */
+  .table-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .trades-table {
+    min-width: 640px;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* Edit panel: legs table scrolls, tighter padding */
+  .edit-panel { padding: 12px 12px 14px; }
+  .ep-legs-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Trade form: legs table scrolls */
+  .form-card { padding: 16px 14px; }
+  .legs-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .legs-table { min-width: 520px; }
+
+  /* Dashboard best/worst: single column */
+  .best-worst { grid-template-columns: 1fr; }
+
+  /* Trade detail header: stack */
+  .td-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  /* Trade detail banner: wrap to 2 columns */
+  .td-banner-cell { min-width: 45%; }
+
+  /* Tabs: horizontal scroll */
+  .td-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+  .td-tabs::-webkit-scrollbar { display: none; }
+  .td-tab { white-space: nowrap; padding: 10px 14px; }
+
+  /* Timeline: stack the three columns vertically */
+  .timeline-header-row { display: none; }
+  .timeline-row { flex-direction: column; padding: 12px 0; gap: 10px; }
+  .tl-date-col  { width: 100%; min-width: 0; padding: 0 14px; }
+  .tl-nifty-col { width: 100%; min-width: 0; padding: 10px 14px; border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .tl-comment-col { width: 100%; min-width: 0; padding: 0 14px; }
+
+  /* Market Diary: stack sidebar above main */
+  .main-content:has(.diary-layout) { padding: 0; }
+  .diary-layout { flex-direction: column; height: auto; overflow: visible; }
+  .diary-sidebar {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 220px;
+  }
+  .diary-main { padding: 14px; overflow-y: visible; }
+
+  /* Import modal: full screen */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-box { border-radius: 16px 16px 0 0; max-height: 92vh; }
+  .import-table-wrap { padding: 0 14px; }
+  .import-preview-table { min-width: 520px; }
+  .import-table-wrap { overflow-x: auto; }
+
+  /* Changelog: stack date above entries */
+  .cl-release { flex-direction: column; gap: 10px; }
+  .cl-release-date { padding-top: 0; }
+}
+
+/* Extra-small phones */
+@media (max-width: 420px) {
+  .navbar-brand { font-size: 14px; }
+  .stat-value { font-size: 18px; }
+  .td-banner-cell { min-width: 100%; }
+}
