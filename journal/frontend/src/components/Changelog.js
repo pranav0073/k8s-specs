@@ -56,6 +56,12 @@ const RELEASES = [
         description:
           'The Trades page now loads with the status filter pre-set to "Open", hiding closed trades by default. Clicking Clear resets to show all.',
       },
+      {
+        type: 'feature',
+        title: 'Mobile-responsive layout',
+        description:
+          'The full app is now usable on phones and tablets on the same Wi-Fi network. Navbar links scroll horizontally, the trades table scrolls inside a container, the trade detail timeline stacks vertically, the Market Diary sidebar stacks above the main panel, and the import modal slides up from the bottom as a sheet.',
+      },
     ],
   },
 ];
