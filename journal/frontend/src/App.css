@@ -1232,21 +1232,84 @@ textarea { resize: vertical; }
   .filters input,
   .filters select { flex: 1; min-width: 0; }
 
-  /* Trades table: horizontal scroll container */
-  .table-scroll-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: 10px;
+  /* Trades table → card layout (no horizontal scroll) */
+  .table-scroll-wrap { overflow-x: visible; border: none; border-radius: 0; }
+
+  .trades-table { display: block; min-width: 0; border: none; border-radius: 0; }
+  .trades-table thead { display: none; }
+  .trades-table tbody { display: flex; flex-direction: column; gap: 8px; }
+
+  /* Each trade row becomes a 2-column card */
+  .trades-table tr.data-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto auto;
     border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: var(--surface);
+    gap: 2px 8px;
+    cursor: pointer;
+    transition: background 0.1s;
   }
-  .trades-table {
-    min-width: 640px;
-    border: none;
-    border-radius: 0;
+  .trades-table tr.data-row:hover    { background: var(--row-hover); }
+  .trades-table tr.data-row.selected { background: var(--row-sel); border-color: var(--blue); border-width: 2px; }
+  /* Move dimming to the tr itself so grid items aren't individually dimmed */
+  .trades-table tr.data-row.dimmed          { opacity: 0.35; pointer-events: none; }
+  .trades-table tbody tr.dimmed td          { opacity: 1; }
+  /* Undo per-td backgrounds set by desktop rules */
+  .trades-table tbody tr.data-row:hover td       { background: transparent; }
+  .trades-table tbody tr.data-row.selected td    { background: transparent; }
+
+  /* All tds: reset to block, no padding/border */
+  .trades-table tr.data-row td { display: block; padding: 0; border: none; vertical-align: unset; }
+
+  /* Row 1 left — Date */
+  .trades-table tr.data-row td:nth-child(1) {
+    grid-column: 1; grid-row: 1;
+    font-size: 12px; color: var(--muted); white-space: nowrap;
+  }
+  /* Row 1 right — Status badge */
+  .trades-table tr.data-row td:nth-child(7) {
+    grid-column: 2; grid-row: 1;
+    text-align: right;
+  }
+  /* Row 2 left — Instrument */
+  .trades-table tr.data-row td:nth-child(2) {
+    grid-column: 1; grid-row: 2;
+    font-size: 17px; font-weight: 700; margin-top: 2px;
+  }
+  /* Row 2 right — Strategy */
+  .trades-table tr.data-row td:nth-child(3) {
+    grid-column: 2; grid-row: 2;
+    font-size: 12px; color: var(--muted); text-align: right;
+    margin-top: 2px; align-self: center;
+  }
+  /* Row 3 — Legs full width */
+  .trades-table tr.data-row td:nth-child(4) {
+    grid-column: 1 / -1; grid-row: 3;
+    margin-top: 8px; margin-bottom: 4px;
+  }
+  /* Row 4 left — Net Premium */
+  .trades-table tr.data-row td:nth-child(5) {
+    grid-column: 1; grid-row: 4;
+    font-size: 13px; text-align: left !important;
+  }
+  /* Row 4 right — P&L */
+  .trades-table tr.data-row td:nth-child(6) {
+    grid-column: 2; grid-row: 4;
+    font-size: 14px; text-align: right !important;
   }
 
-  /* Edit panel: legs table scrolls, tighter padding */
+  /* Edit row: full-width block under the card */
+  .trades-table tr.edit-row         { display: block; }
+  .trades-table tr.edit-row td      { display: block; padding: 0; border: none; }
+
+  /* Edit panel: fields wrap to 2-col on mobile */
   .edit-panel { padding: 12px 12px 14px; }
+  .ep-field   { min-width: 0; flex: 1 1 calc(50% - 7px); }
+  .ep-field-wide { min-width: 0; flex: 1 1 100%; }
+  .ep-field-full { flex: 1 0 100%; }
   .ep-legs-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   /* Trade form: legs table scrolls */
