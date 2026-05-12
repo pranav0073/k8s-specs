@@ -674,7 +674,7 @@ textarea { resize: vertical; }
 
 .tl-date-col   { width: 110px; min-width: 110px; padding: 0 12px; flex-shrink: 0; }
 .tl-nifty-col  { flex: 1; min-width: 0; overflow: hidden; padding: 0 16px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
-.tl-comment-col{ flex: 1.4; min-width: 0; overflow: hidden; padding: 0 16px; }
+.tl-comment-col{ flex: 2; min-width: 0; overflow: hidden; padding: 0 16px; }
 
 .tl-date-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .tl-marker {
@@ -689,7 +689,7 @@ textarea { resize: vertical; }
 .marker-exit   { background: #f0fdf4; color: var(--green); }
 .marker-active { background: var(--surface2); color: var(--muted); }
 
-.tl-nifty-data  { display: flex; flex-direction: column; gap: 4px; }
+.tl-nifty-data  { display: flex; flex-direction: column; gap: 5px; }
 .tl-nifty-close { display: flex; align-items: center; gap: 8px; }
 .tl-close-val   { font-size: 16px; font-weight: 700; }
 .tl-pct         { font-size: 12px; font-weight: 700; }
@@ -697,17 +697,17 @@ textarea { resize: vertical; }
 .tl-pct.neg     { color: var(--red); }
 .tl-ohlc-mini   { font-size: 11px; color: var(--muted); }
 .tl-no-session  { font-size: 12px; color: var(--muted); font-style: italic; }
-.tl-session-note{ font-size: 11px; color: var(--muted); margin-top: 2px; word-break: break-word; overflow-wrap: break-word; }
+.tl-session-note{ font-size: 11px; color: var(--muted); word-break: break-word; overflow-wrap: break-word; line-height: 1.5; }
 
+/* Range bar — label is a sibling outside the 4px bar so it never overlaps */
+.tl-range-wrap  { display: flex; flex-direction: column; gap: 4px; }
 .tl-range-bar {
-  position: relative;
   height: 4px;
   background: var(--border);
   border-radius: 2px;
-  margin-top: 4px;
   width: 100%;
   max-width: 160px;
-  overflow: visible;
+  overflow: hidden;
 }
 .tl-range-fill {
   height: 100%;
@@ -715,31 +715,59 @@ textarea { resize: vertical; }
   border-radius: 2px;
   min-width: 4px;
 }
-.tl-range-label { font-size: 10px; color: var(--muted); margin-top: 2px; display: block; }
+.tl-range-label { font-size: 10px; color: var(--muted); }
 
-.tl-emotion-row { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+/* Vertical emotion strip + notes */
+.tl-emotion-notes {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.tl-emotions-vert {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.tl-notes-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .emotion-btn {
-  width: 30px; height: 30px;
+  width: 28px; height: 28px;
   border: 2px solid var(--border);
   border-radius: 50%;
   background: var(--surface);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.12s;
   padding: 0;
+  flex-shrink: 0;
 }
-.emotion-btn:hover   { border-color: var(--blue); background: var(--buy-bg); }
-.emotion-btn.selected{ border-color: var(--blue); background: var(--buy-bg); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+.emotion-btn:hover    { border-color: var(--blue); background: var(--buy-bg); }
+.emotion-btn.selected { border-color: var(--blue); background: var(--buy-bg); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
 
 .tl-comment-input {
   width: 100%;
   font-size: 13px;
-  min-height: 48px;
+  min-height: 100px;
   resize: vertical;
-  margin-bottom: 6px;
+  line-height: 1.55;
 }
-.tl-save-row { display: flex; align-items: center; gap: 8px; }
+.tl-save-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tl-emotion-label { font-size: 12px; color: var(--muted); }
+
+/* Compact image strip below the emotion+notes block */
+.tl-img-strip { margin-top: 8px; }
+.tl-img-strip .img-drop-zone {
+  padding: 7px 12px;
+  font-size: 11px;
+}
+.tl-img-strip .img-gallery { margin-bottom: 6px; }
 
 /* Comment Log */
 .td-comment-log { display: flex; flex-direction: column; gap: 12px; }
