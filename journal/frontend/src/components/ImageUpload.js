@@ -7,7 +7,8 @@ import axios from 'axios';
 //   deleteUrlFn  – fn(filename) => DELETE endpoint string
 //   onImagesChange – called after upload/delete so parent can refresh
 
-export default function ImageUpload({ images = [], uploadUrl, deleteUrlFn, onImagesChange }) {
+export default function ImageUpload({ images, uploadUrl, deleteUrlFn, onImagesChange }) {
+  const imgs = Array.isArray(images) ? images : [];
   const inputRef   = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [lightbox,  setLightbox]  = useState(null); // filename to preview full-screen
@@ -41,9 +42,9 @@ export default function ImageUpload({ images = [], uploadUrl, deleteUrlFn, onIma
   return (
     <div className="img-upload-section">
       {/* Thumbnails */}
-      {images.length > 0 && (
+      {imgs.length > 0 && (
         <div className="img-gallery">
-          {images.map(fname => (
+          {imgs.map(fname => (
             <div key={fname} className="img-thumb-wrap">
               <img
                 src={`/uploads/${fname}`}

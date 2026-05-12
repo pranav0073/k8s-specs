@@ -91,7 +91,7 @@ router.post('/', (req, res) => {
       notes || null
     );
   }
-  res.json(db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(date));
+  res.json(parseImages(db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(date)));
 });
 
 // DELETE /api/sessions/:id
