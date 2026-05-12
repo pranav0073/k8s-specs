@@ -1043,3 +1043,64 @@ textarea { resize: vertical; }
   font-weight: 600;
   margin-bottom: 14px;
 }
+
+/* ── Changelog ────────────────────────────────────────────────────────────── */
+.cl-page .page-header { margin-bottom: 28px; }
+.cl-subtitle { color: var(--muted); font-size: 13px; margin-left: 12px; }
+
+.cl-timeline { display: flex; flex-direction: column; gap: 32px; }
+
+.cl-release { display: flex; gap: 24px; }
+
+.cl-release-date {
+  min-width: 110px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-top: 10px;
+  white-space: nowrap;
+}
+
+.cl-entries { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+.cl-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cl-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  user-select: none;
+}
+.cl-entry-header:hover { background: var(--row-hover); }
+
+.cl-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.cl-badge-feature     { background: #eff6ff; color: #1d4ed8; }
+.cl-badge-improvement { background: #f0fdf4; color: #15803d; }
+.cl-badge-fix         { background: #fff7ed; color: #c2410c; }
+
+.cl-entry-title { font-size: 14px; font-weight: 600; flex: 1; }
+
+.cl-chevron { font-size: 10px; color: var(--muted); margin-left: 4px; }
+
+.cl-entry-body {
+  padding: 10px 14px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
