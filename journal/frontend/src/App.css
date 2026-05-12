@@ -629,6 +629,56 @@ textarea { resize: vertical; }
 .sg-notes  { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .sg-notes-text { font-size: 13px; color: var(--text); line-height: 1.6; white-space: pre-wrap; }
 
+/* ── MTM / Est. P&L ───────────────────────── */
+.mtm-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mtm-value { font-weight: 700; font-size: 13px; white-space: nowrap; }
+.mtm-toggle { font-size: 11px; padding: 3px 8px; white-space: nowrap; }
+.mtm-toggle.active { background: var(--buy-bg); border-color: var(--blue); color: var(--blue); }
+.row-expanded td { background: #f8faff; }
+
+.mtm-expand-row td { padding: 0 !important; border-top: none; }
+.mtm-form {
+  padding: 12px 16px;
+  background: var(--surface2);
+  border-top: 2px solid var(--blue);
+}
+.mtm-table {
+  width: auto;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.mtm-table th {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.mtm-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.mtm-table tr:last-child td { border-bottom: none; }
+.mtm-table tr.buy-row  { background: #f8fbff; }
+.mtm-table tr.sell-row { background: #fff8f8; }
+
+.ltp-input {
+  width: 90px;
+  padding: 4px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+}
+.ltp-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+
+.mtm-total { font-size: 13px; color: var(--muted); }
+.mtm-total strong { font-size: 16px; margin-left: 4px; }
+.mtm-partial { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.muted { color: var(--muted); }
+
 /* ── Image Upload ─────────────────────────── */
 .img-upload-section { display: flex; flex-direction: column; gap: 10px; }
 
