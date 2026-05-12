@@ -279,7 +279,7 @@ td.actions   { display: flex; gap: 4px; }
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--muted);
 }
-.ep-legs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ep-legs-table { width: auto; border-collapse: collapse; font-size: 12px; }
 .ep-legs-table th {
   color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.04em; padding: 4px 6px; text-align: left;
@@ -290,7 +290,7 @@ td.actions   { display: flex; gap: 4px; }
 .ep-legs-table input, .ep-legs-table select {
   border: 1px solid var(--border); border-radius: 4px;
   padding: 3px 6px; font-size: 12px; font-family: inherit;
-  background: #fff; width: 100%; color: var(--text); height: 28px;
+  background: #fff; width: auto; color: var(--text); height: 28px;
 }
 .ep-legs-table input:focus, .ep-legs-table select:focus { outline: none; border-color: var(--blue); }
 .ep-legs-table tr.buy-row  { background: #fafcff; }
