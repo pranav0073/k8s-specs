@@ -190,12 +190,6 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
 
 
 // ── Merge Modal ──────────────────────────────────────────────────────────
-const STRATEGIES = [
-  'Calendar Spread', 'Bull Put Spread', 'Bear Call Spread',
-  'Iron Condor', 'Straddle', 'Strangle', 'Butterfly',
-  'Ratio Spread', 'Jade Lizard', 'Naked',
-];
-
 function MergeModal({ trades, onClose, onMerged }) {
   const instruments   = [...new Set(trades.map(t => t.instrument))];
   const mixedInstr    = instruments.length > 1;
