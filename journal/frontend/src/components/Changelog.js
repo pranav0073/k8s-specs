@@ -6,6 +6,23 @@ import React, { useState } from 'react';
 
 const RELEASES = [
   {
+    date: '2026-05-13',
+    entries: [
+      {
+        type: 'fix',
+        title: 'CSV import: monthly expiry contracts no longer dropped',
+        description:
+          'Zerodha monthly expiry instruments (e.g. NIFTY26MAY23500PE, NIFTY26JUN23600PE) were silently skipped during import because only the weekly format was recognised. Both formats are now parsed: weekly expiry is shown as "19 May" and monthly expiry as "May \'26".',
+      },
+      {
+        type: 'feature',
+        title: 'Bulk delete trades by date range',
+        description:
+          'A "Bulk Delete" button on the Trades page opens a modal where you can specify a from/to date range. It previews how many trades will be deleted before you confirm, then removes all matching trades and their comments in one go.',
+      },
+    ],
+  },
+  {
     date: '2026-05-12',
     entries: [
       {

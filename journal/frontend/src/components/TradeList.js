@@ -188,6 +188,145 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
   );
 }
 
+
+// ── Merge Modal ──────────────────────────────────────────────────────────
+function MergeModal({ trades, onClose, onMerged }) {
+  const instruments   = [...new Set(trades.map(t => t.instrument))];
+  const mixedInstr    = instruments.length > 1;
+  const allLegs       = trades.flatMap(t => t.legs);
+  const earliestDate  = [...trades.map(t => t.date)].sort()[0];
+  const latestClose   = [...trades.map(t => t.close_date).filter(Boolean)].sort().at(-1) || '';
+  const allClosed     = trades.every(t => t.status === 'closed');
+
+  const [instrument, setInstrument] = useState(instruments[0]);
+  const [date,       setDate]       = useState(earliestDate);
+  const [strategy,   setStrategy]   = useState('');
+  const [status,     setStatus]     = useState(allClosed ? 'closed' : 'open');
+  const [closeDate,  setCloseDate]  = useState(latestClose);
+  const [busy,       setBusy]       = useState(false);
+  const [err,        setErr]        = useState('');
+
+  const handleMerge = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      const combinedNotes = trades.map(t => t.notes).filter(Boolean).join('\n---\n');
+      const combinedTags  = [...new Set(trades.flatMap(t => Array.isArray(t.tags) ? t.tags : []))];
+      await axios.post('/api/trades', {
+        date,
+        instrument,
+        strategy: strategy || null,
+        status,
+        close_date: status === 'closed' ? (closeDate || date) : null,
+        legs: allLegs,
+        notes: combinedNotes || null,
+        tags: combinedTags,
+      });
+      for (const t of trades) {
+        await axios.delete(`/api/trades/${t.id}`);
+      }
+      onMerged();
+      onClose();
+    } catch {
+      setErr('Merge failed. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Merge {trades.length} Trades</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {mixedInstr && (
+            <div style={{ fontSize: 13, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, padding: '8px 12px', color: '#92400e' }}>
+              Warning: selected trades have different instruments ({instruments.join(', ')}). Choose which to use below.
+            </div>
+          )}
+
+          {/* Trades being merged */}
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Merging</div>
+            {trades.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                <span>{t.date} · <strong>{t.instrument}</strong> · {t.legs.length} leg{t.legs.length !== 1 ? 's' : ''}</span>
+                <span className={`status-badge ${t.status}`}>{t.status}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Combined legs preview */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+              Combined legs ({allLegs.length})
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {allLegs.map((l, i) => (
+                <span key={i} className={`leg-pill ${l.side === 'B' ? 'buy' : 'sell'}`}>
+                  <span className={`leg-dot ${l.side === 'B' ? 'buy' : 'sell'}`} />
+                  <span className="leg-strike">{l.strike}</span>
+                  <span className="leg-otype">{l.type}</span>
+                  <span className="leg-sep">·</span>
+                  <span className="leg-lots">{l.lots}L</span>
+                  <span className="leg-expiry">{l.expiry}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Fields for merged trade */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label>Instrument</label>
+              <select value={instrument} onChange={e => setInstrument(e.target.value)}>
+                <option>NIFTY</option><option>BANKNIFTY</option>
+                <option>FINNIFTY</option><option>MIDCPNIFTY</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Strategy</label>
+              <input list="merge-strat-list" value={strategy} onChange={e => setStrategy(e.target.value)} placeholder="Select or type…" />
+              <datalist id="merge-strat-list">
+                {STRATEGIES.map(s => <option key={s} value={s} />)}
+              </datalist>
+            </div>
+            <div className="form-group">
+              <label>Status</label>
+              <select value={status} onChange={e => setStatus(e.target.value)}>
+                <option value="open">open</option>
+                <option value="closed">closed</option>
+              </select>
+            </div>
+            {status === 'closed' && (
+              <div className="form-group">
+                <label>Close Date</label>
+                <input type="date" value={closeDate} onChange={e => setCloseDate(e.target.value)} />
+              </div>
+            )}
+          </div>
+
+          {err && <div style={{ fontSize: 13, color: 'var(--red)', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '8px 12px' }}>{err}</div>}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleMerge} disabled={busy}>
+            {busy ? 'Merging…' : `Merge into 1 Trade`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main list ────────────────────────────────────────────────────────────
 export default function TradeList() {
   const [trades,      setTrades]      = useState([]);
@@ -196,6 +335,9 @@ export default function TradeList() {
   const [expandedId,  setExpandedId]  = useState(null);
   const [showImport,  setShowImport]  = useState(false);
   const [importToast, setImportToast] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [deleting,    setDeleting]    = useState(false);
+  const [showMerge,   setShowMerge]   = useState(false);
   const navigate = useNavigate();
 
   const fetchTrades = useCallback(() => {
@@ -208,7 +350,24 @@ export default function TradeList() {
 
   useEffect(() => { fetchTrades(); }, []); // eslint-disable-line
 
-  const handleRowClick = (id) => setExpandedId(prev => prev === id ? null : id);
+  const handleRowClick = (id) => {
+    if (selectedIds.size > 0) return; // in select mode, row click is handled by checkbox
+    setExpandedId(prev => prev === id ? null : id);
+  };
+
+  const toggleSelect = (e, id) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+    setExpandedId(null);
+  };
+
+  const toggleAll = (e) => {
+    setSelectedIds(e.target.checked ? new Set(trades.map(t => t.id)) : new Set());
+  };
 
   const handleSave = async (id, payload) => {
     await axios.put(`/api/trades/${id}`, payload);
@@ -217,10 +376,22 @@ export default function TradeList() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this trade?')) return;
     await axios.delete(`/api/trades/${id}`);
     setExpandedId(null);
     setTrades(p => p.filter(t => t.id !== id));
+  };
+
+  const handleDeleteSelected = async () => {
+    setDeleting(true);
+    let count = 0;
+    for (const id of selectedIds) {
+      try { await axios.delete(`/api/trades/${id}`); count++; } catch {}
+    }
+    setSelectedIds(new Set());
+    setDeleting(false);
+    fetchTrades();
+    setImportToast(`${count} trade${count !== 1 ? 's' : ''} deleted.`);
+    setTimeout(() => setImportToast(''), 4000);
   };
 
   const handleImported = (count) => {
@@ -231,13 +402,34 @@ export default function TradeList() {
 
   const set = key => e => setFilters(f => ({ ...f, [key]: e.target.value }));
 
+  const allSelected = trades.length > 0 && selectedIds.size === trades.length;
+  const someSelected = selectedIds.size > 0;
+
   return (
     <div>
       <div className="page-header">
         <h1>Trades</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
-          <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {someSelected ? (
+            <>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{selectedIds.size} selected</span>
+              {selectedIds.size >= 2 && (
+                <button className="btn btn-primary" onClick={() => setShowMerge(true)}>
+                  Merge {selectedIds.size}
+                </button>
+              )}
+              <button className="btn" style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
+                onClick={handleDeleteSelected} disabled={deleting}>
+                {deleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setSelectedIds(new Set())}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -273,6 +465,9 @@ export default function TradeList() {
         <table className="trades-table">
           <thead>
             <tr>
+              <th style={{ width: 36 }}>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} title="Select all" />
+              </th>
               <th>Date</th>
               <th>Instrument</th>
               <th>Strategy</th>
@@ -286,13 +481,17 @@ export default function TradeList() {
             {trades.map(t => {
               const isExpanded = expandedId === t.id;
               const isDimmed   = expandedId != null && !isExpanded;
+              const isChecked  = selectedIds.has(t.id);
               return (
                 <React.Fragment key={t.id}>
                   <tr
-                    className={`data-row${isExpanded ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}`}
+                    className={`data-row${isExpanded ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}${isChecked ? ' row-checked' : ''}`}
                     onClick={() => handleRowClick(t.id)}
                     title="Click to edit · Open full detail from edit panel"
                   >
+                    <td onClick={e => toggleSelect(e, t.id)} className="td-check">
+                      <input type="checkbox" checked={isChecked} onChange={() => {}} />
+                    </td>
                     <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 13 }}>{t.date}</td>
                     <td style={{ fontWeight: 700 }}>{t.instrument}</td>
                     <td style={{ color: 'var(--muted)', fontSize: 13 }}>{t.strategy || '—'}</td>
@@ -310,7 +509,7 @@ export default function TradeList() {
 
                   {isExpanded && (
                     <tr className="edit-row">
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <EditPanel
                           trade={t}
                           onSave={payload => handleSave(t.id, payload)}
@@ -332,6 +531,19 @@ export default function TradeList() {
         <ImportModal
           onClose={() => setShowImport(false)}
           onImported={handleImported}
+        />
+      )}
+
+      {showMerge && (
+        <MergeModal
+          trades={trades.filter(t => selectedIds.has(t.id))}
+          onClose={() => setShowMerge(false)}
+          onMerged={() => {
+            setSelectedIds(new Set());
+            fetchTrades();
+            setImportToast('Trades merged successfully.');
+            setTimeout(() => setImportToast(''), 4000);
+          }}
         />
       )}
     </div>

@@ -3,24 +3,37 @@ import axios from 'axios';
 
 const LOT_SIZE = 65;
 
-// Zerodha weekly expiry: {INDEX}{YY}{M}{DD}{STRIKE}{CE|PE}
-// M = 1-9 for Jan-Sep, O=Oct, N=Nov, D=Dec
-const INSTRUMENT_RE = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)(\d{2})([1-9ONDS])(\d{2})(\d+)(CE|PE)$/i;
+// Zerodha weekly expiry:  {INDEX}{YY}{M}{DD}{STRIKE}{CE|PE}
+//   M = 1-9 for Jan-Sep, O=Oct, N=Nov, D=Dec
+// Zerodha monthly expiry: {INDEX}{YY}{MMM}{STRIKE}{CE|PE}
+//   MMM = JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC
+const WEEKLY_RE  = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)(\d{2})([1-9ONDS])(\d{2})(\d+)(CE|PE)$/i;
+const MONTHLY_RE = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d+)(CE|PE)$/i;
 const MONTH_CODES   = { '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9, O:10, N:11, D:12 };
 const MONTH_NAMES   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function parseInstrumentName(name) {
-  const m = INSTRUMENT_RE.exec(name.toUpperCase());
-  if (!m) return null;
-  const [, index, yy, monCode, dd, strikeStr, optType] = m;
-  const mon = MONTH_CODES[monCode.toUpperCase()];
-  if (!mon) return null;
-  return {
-    index,
-    expiry:  `${parseInt(dd, 10)} ${MONTH_NAMES[mon - 1]}`,
-    strike:  parseInt(strikeStr, 10),
-    optType,
-  };
+  const upper = name.toUpperCase();
+
+  // Try weekly first
+  const w = WEEKLY_RE.exec(upper);
+  if (w) {
+    const [, index, , monCode, dd, strikeStr, optType] = w;
+    const mon = MONTH_CODES[monCode.toUpperCase()];
+    if (!mon) return null;
+    return { index, expiry: `${parseInt(dd, 10)} ${MONTH_NAMES[mon - 1]}`, strike: parseInt(strikeStr, 10), optType };
+  }
+
+  // Try monthly
+  const mo = MONTHLY_RE.exec(upper);
+  if (mo) {
+    const [, index, yy, monStr, strikeStr, optType] = mo;
+    const monIdx = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].indexOf(monStr.toUpperCase());
+    if (monIdx === -1) return null;
+    return { index, expiry: `${MONTH_NAMES[monIdx]} '${yy}`, strike: parseInt(strikeStr, 10), optType };
+  }
+
+  return null;
 }
 
 function parseCSVLine(line) {
