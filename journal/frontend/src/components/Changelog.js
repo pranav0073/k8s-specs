@@ -16,9 +16,27 @@ const RELEASES = [
       },
       {
         type: 'feature',
-        title: 'Bulk delete trades by date range',
+        title: 'Checkbox row selection and delete',
         description:
-          'A "Bulk Delete" button on the Trades page opens a modal where you can specify a from/to date range. It previews how many trades will be deleted before you confirm, then removes all matching trades and their comments in one go.',
+          'Each trade row now has a checkbox. Select one or more rows and a red "Delete N" button appears in the header. A "Select all" checkbox in the column header selects every visible trade at once. Replaces the previous bulk-delete modal which had browser compatibility issues.',
+      },
+      {
+        type: 'feature',
+        title: 'Merge trades',
+        description:
+          'Select 2 or more trades using checkboxes and a "Merge" button appears in the toolbar. The merge modal shows each trade being merged, a preview of all combined legs, and lets you set the instrument, date, strategy, and status for the resulting trade. Notes and tags from all selected trades are combined. On confirm, one new trade is created and the originals are deleted.',
+      },
+      {
+        type: 'feature',
+        title: 'Daily charges tracking',
+        description:
+          'A new "Charges" page (accessible from the navbar) lets you manually log daily brokerage, STT, exchange charges, GST, SEBI charges, stamp duty, and other costs per trading day. The Dashboard now shows three top-level cards — Gross P&L, Total Charges, and Net P&L (after charges) — plus a "Charges Impact" section showing what percentage of your gross P&L is consumed by charges and a per-day breakdown table.',
+      },
+      {
+        type: 'fix',
+        title: 'App blank page on startup — static file path corrected',
+        description:
+          'The Express backend was looking for the React build in backend/public which does not exist. It now automatically falls back to frontend/build (where npm run build actually outputs), so the app starts correctly without any manual copy step.',
       },
     ],
   },
