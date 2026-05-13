@@ -35,6 +35,8 @@ export default function MarketDiary() {
   const [form, setForm]                 = useState(EMPTY_FORM);
   const [saving, setSaving]             = useState(false);
   const [saved, setSaved]               = useState(false);
+  const [fetching, setFetching]         = useState(false);
+  const [fetchErr, setFetchErr]         = useState('');
 
   const loadSessions = useCallback(() => {
     axios.get('/api/sessions').then(r => setSessions(r.data));
@@ -70,6 +72,27 @@ export default function MarketDiary() {
   const today = localDateStr();
 
   const handleAddToday = () => setSelectedDate(today);
+
+  const handleFetch = async () => {
+    if (!selectedDate) return;
+    setFetching(true);
+    setFetchErr('');
+    try {
+      const r = await axios.get('/api/sessions/quote', { params: { date: selectedDate } });
+      setForm(f => ({
+        ...f,
+        open:       r.data.open       ?? f.open,
+        high:       r.data.high       ?? f.high,
+        low:        r.data.low        ?? f.low,
+        close:      r.data.close      ?? f.close,
+        prev_close: r.data.prev_close ?? f.prev_close,
+      }));
+    } catch (e) {
+      setFetchErr(e.response?.data?.error || 'Failed to fetch NIFTY data');
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -161,7 +184,23 @@ export default function MarketDiary() {
 
             {/* NIFTY OHLC entry */}
             <div className="form-card">
-              <h3>NIFTY Data</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h3 style={{ margin: 0 }}>NIFTY Data</h3>
+                <button
+                  className="btn btn-sm"
+                  style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                  onClick={handleFetch}
+                  disabled={fetching}
+                  title="Auto-fill OHLC from NSE via Yahoo Finance"
+                >
+                  {fetching ? 'Fetching…' : '⟳ Fetch from NSE'}
+                </button>
+              </div>
+              {fetchErr && (
+                <div style={{ fontSize: 12, color: 'var(--red)', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
+                  {fetchErr}
+                </div>
+              )}
               <div className="ohlc-row">
                 {[
                   { key: 'prev_close', label: 'Prev Close' },
