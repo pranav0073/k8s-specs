@@ -63,4 +63,19 @@ if (!commentCols.find(c => c.name === 'images')) {
   db.exec("ALTER TABLE trade_comments ADD COLUMN images TEXT DEFAULT '[]'");
 }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS daily_charges (
+    date             TEXT PRIMARY KEY,
+    brokerage        REAL NOT NULL DEFAULT 0,
+    stt              REAL NOT NULL DEFAULT 0,
+    exchange_charges REAL NOT NULL DEFAULT 0,
+    gst              REAL NOT NULL DEFAULT 0,
+    sebi_charges     REAL NOT NULL DEFAULT 0,
+    stamp_duty       REAL NOT NULL DEFAULT 0,
+    other            REAL NOT NULL DEFAULT 0,
+    notes            TEXT,
+    created_at       TEXT DEFAULT (datetime('now'))
+  )
+`);
+
 module.exports = db;
