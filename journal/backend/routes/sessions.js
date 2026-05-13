@@ -56,9 +56,12 @@ router.get('/quote', async (req, res) => {
     const quote      = result.indicators.quote[0];
     const adjClose   = result.indicators.adjclose?.[0]?.adjclose;
 
-    // Find the index matching the requested date
+    // Find the index matching the requested date.
+    // NSE timestamps from Yahoo Finance are midnight IST (UTC+5:30), so we add
+    // the IST offset before extracting the calendar date to avoid off-by-one errors.
+    const IST_OFFSET = 5.5 * 3600; // seconds
     const idx = timestamps.findIndex(ts => {
-      const d = new Date(ts * 1000);
+      const d = new Date((ts + IST_OFFSET) * 1000);
       const y = d.getUTCFullYear();
       const m = String(d.getUTCMonth() + 1).padStart(2, '0');
       const day = String(d.getUTCDate()).padStart(2, '0');
