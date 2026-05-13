@@ -22,10 +22,18 @@ app.use('/api/charges',   chargesRouter);
 app.use('/uploads',       express.static(UPLOADS_DIR));
 app.get('/api/health',    (req, res) => res.json({ status: 'ok' }));
 
-// Serve React build
-const buildDir = process.env.STATIC_DIR || path.join(__dirname, 'public');
+// Serve React build — prefer STATIC_DIR env var, then backend/public, then frontend/build
+const buildDir = process.env.STATIC_DIR
+  || (fs.existsSync(path.join(__dirname, 'public', 'index.html')) ? path.join(__dirname, 'public') : path.join(__dirname, '..', 'frontend', 'build'));
 app.use(express.static(buildDir));
-app.get('*', (req, res) => res.sendFile(path.join(buildDir, 'index.html')));
+app.get('*', (req, res) => {
+  const indexPath = path.join(buildDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(503).send('Frontend not built. Run: cd frontend && npm run build');
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Trading journal server running on port ${PORT}`);
