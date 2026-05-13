@@ -221,6 +221,26 @@ router.get('/stats', (req, res) => {
   });
 });
 
+// GET /api/trades/bulk/preview?from=&to=  — count without deleting
+router.get('/bulk/preview', (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+  const count = db.prepare('SELECT COUNT(*) as n FROM trades WHERE date >= ? AND date <= ?').get(from, to).n;
+  res.json({ count });
+});
+
+// DELETE /api/trades/bulk?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.delete('/bulk', (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
+  const rows = db.prepare('SELECT id FROM trades WHERE date >= ? AND date <= ?').all(from, to);
+  for (const { id } of rows) {
+    db.prepare('DELETE FROM trade_comments WHERE trade_id = ?').run(id);
+    db.prepare('DELETE FROM trades WHERE id = ?').run(id);
+  }
+  res.json({ deleted: rows.length });
+});
+
 // GET /api/trades/:id
 router.get('/:id', (req, res) => {
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
@@ -270,26 +290,6 @@ router.put('/:id', (req, res) => {
     req.params.id
   );
   res.json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id)));
-});
-
-// DELETE /api/trades/bulk?from=YYYY-MM-DD&to=YYYY-MM-DD
-router.delete('/bulk', (req, res) => {
-  const { from, to } = req.query;
-  if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
-  const rows = db.prepare('SELECT id FROM trades WHERE date >= ? AND date <= ?').all(from, to);
-  for (const { id } of rows) {
-    db.prepare('DELETE FROM trade_comments WHERE trade_id = ?').run(id);
-    db.prepare('DELETE FROM trades WHERE id = ?').run(id);
-  }
-  res.json({ deleted: rows.length });
-});
-
-// GET /api/trades/bulk/preview?from=&to=  — count without deleting
-router.get('/bulk/preview', (req, res) => {
-  const { from, to } = req.query;
-  if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
-  const count = db.prepare('SELECT COUNT(*) as n FROM trades WHERE date >= ? AND date <= ?').get(from, to).n;
-  res.json({ count });
 });
 
 // DELETE /api/trades/:id
