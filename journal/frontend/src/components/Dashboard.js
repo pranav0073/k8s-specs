@@ -108,13 +108,19 @@ function StatCard({ label, value, color, sub }) {
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const [stats, setStats]     = useState(null);
+  const [stats,   setStats]   = useState(null);
+  const [charges, setCharges] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('/api/trades/stats')
-      .then(r => { setStats(r.data); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      axios.get('/api/trades/stats'),
+      axios.get('/api/charges'),
+    ]).then(([sr, cr]) => {
+      setStats(sr.data);
+      setCharges(cr.data);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="loading">Loading…</div>;
@@ -140,13 +146,18 @@ export default function Dashboard() {
   const rrRatio = avgLoss !== 0 ? Math.abs(avgWin / avgLoss).toFixed(2) : '—';
   const insights = buildInsights(stats);
 
+  const totalCharges = charges.reduce((s, c) => s + (c.total || 0), 0);
+  const netPnl = totalPnl - totalCharges;
+
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
 
       {/* ── Overview cards ── */}
       <div className="stat-cards">
-        <StatCard label="Total P&L"        value={`${totalPnl >= 0 ? '+' : ''}₹${Math.round(totalPnl).toLocaleString('en-IN')}`} color={totalPnl >= 0 ? 'green' : 'red'} />
+        <StatCard label="Gross P&L"        value={`${totalPnl >= 0 ? '+' : ''}₹${Math.round(totalPnl).toLocaleString('en-IN')}`} color={totalPnl >= 0 ? 'green' : 'red'} sub="before charges" />
+        <StatCard label="Total Charges"    value={totalCharges > 0 ? `−₹${Math.round(totalCharges).toLocaleString('en-IN')}` : '₹0'} color={totalCharges > 0 ? 'red' : ''} sub="brokerage + taxes" />
+        <StatCard label="Net P&L"          value={`${netPnl >= 0 ? '+' : ''}₹${Math.round(netPnl).toLocaleString('en-IN')}`} color={netPnl >= 0 ? 'green' : 'red'} sub="after all charges" />
         <StatCard label="Win Rate"         value={`${winRate}%`} color="blue" sub={`${winners}W / ${losers}L of ${total}`} />
         <StatCard label="Profit Factor"    value={profitFactor ?? '—'} color={profitFactor === null ? '' : profitFactor >= 1.5 ? 'green' : profitFactor >= 1 ? '' : 'red'} sub="gross profit ÷ gross loss" />
         <StatCard label="Expectancy"       value={expectancy != null ? `${expectancy >= 0 ? '+' : ''}₹${Math.round(expectancy).toLocaleString('en-IN')}` : '—'} color={expectancy >= 0 ? 'green' : 'red'} sub="per trade" />
@@ -156,6 +167,61 @@ export default function Dashboard() {
         <StatCard label="Best Streak"      value={`${maxWinStreak}W`} color="green" sub={`worst: ${maxLossStreak}L`} />
         {avgHoldDays != null && <StatCard label="Avg Hold" value={`${avgHoldDays}d`} />}
       </div>
+
+      {/* ── Charges impact ── */}
+      {charges.length > 0 && (
+        <div className="section-card">
+          <h2 className="section-title">Charges Impact</h2>
+          <div className="charges-impact-grid">
+            <div className="ci-stat">
+              <div className="ci-label">Charges as % of Gross P&L</div>
+              <div className={`ci-value ${totalPnl > 0 ? (totalCharges / totalPnl > 0.2 ? 'red' : totalCharges / totalPnl > 0.1 ? 'amber' : 'green') : 'red'}`}>
+                {totalPnl !== 0 ? `${((totalCharges / Math.abs(totalPnl)) * 100).toFixed(1)}%` : '—'}
+              </div>
+            </div>
+            <div className="ci-stat">
+              <div className="ci-label">Avg Charges per Day</div>
+              <div className="ci-value">{charges.length > 0 ? `₹${Math.round(totalCharges / charges.length).toLocaleString('en-IN')}` : '—'}</div>
+            </div>
+            <div className="ci-stat">
+              <div className="ci-label">Days Logged</div>
+              <div className="ci-value">{charges.length}</div>
+            </div>
+          </div>
+
+          <table className="charges-dash-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th style={{ textAlign: 'right' }}>Brokerage</th>
+                <th style={{ textAlign: 'right' }}>STT</th>
+                <th style={{ textAlign: 'right' }}>Exchange</th>
+                <th style={{ textAlign: 'right' }}>GST</th>
+                <th style={{ textAlign: 'right' }}>Other</th>
+                <th style={{ textAlign: 'right' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {charges.slice(0, 10).map(c => (
+                <tr key={c.date}>
+                  <td style={{ fontSize: 13, color: 'var(--muted)' }}>{c.date}</td>
+                  <td style={{ textAlign: 'right', fontSize: 13 }}>{c.brokerage ? `₹${c.brokerage.toLocaleString('en-IN')}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 13 }}>{c.stt ? `₹${c.stt.toLocaleString('en-IN')}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 13 }}>{c.exchange_charges ? `₹${c.exchange_charges.toLocaleString('en-IN')}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 13 }}>{c.gst ? `₹${c.gst.toLocaleString('en-IN')}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 13 }}>{(c.sebi_charges + c.stamp_duty + c.other) > 0 ? `₹${(c.sebi_charges + c.stamp_duty + c.other).toLocaleString('en-IN')}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--red)' }}>₹{c.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {charges.length > 10 && (
+            <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
+              Showing 10 of {charges.length} entries · <a href="/charges">View all →</a>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Equity Curve ── */}
       {equityCurve.length > 1 && (
