@@ -188,105 +188,6 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
   );
 }
 
-// ── Bulk Delete Modal ────────────────────────────────────────────────────
-function BulkDeleteModal({ onClose, onDeleted }) {
-  const today = new Date();
-  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const [from,     setFrom]     = useState(fmt(new Date(today.getFullYear(), today.getMonth(), 1)));
-  const [to,       setTo]       = useState(fmt(today));
-  const [preview,  setPreview]  = useState(null);
-  const [confirm,  setConfirm]  = useState(false);
-  const [busy,     setBusy]     = useState(false);
-  const [err,      setErr]      = useState('');
-
-  const loadPreview = () => {
-    if (!from || !to) return;
-    setErr('');
-    setPreview(null);
-    setConfirm(false);
-    axios.get('/api/trades/bulk/preview', { params: { from, to } })
-      .then(r => setPreview(r.data.count))
-      .catch(() => setErr('Failed to reach server. Make sure the backend is running.'));
-  };
-
-  const handleDelete = async () => {
-    setBusy(true);
-    setErr('');
-    try {
-      const r = await axios.delete('/api/trades/bulk', { params: { from, to } });
-      onDeleted(r.data.deleted);
-      onClose();
-    } catch {
-      setErr('Delete failed. Please try again.');
-      setBusy(false);
-      setConfirm(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Bulk Delete Trades</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Delete all trades whose <strong>open date</strong> falls within the selected range.
-          </p>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>From</label>
-              <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPreview(null); setConfirm(false); }} style={{ width: '100%' }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>To</label>
-              <input type="date" value={to} onChange={e => { setTo(e.target.value); setPreview(null); setConfirm(false); }} style={{ width: '100%' }} />
-            </div>
-          </div>
-          <button className="btn" onClick={loadPreview} disabled={!from || !to}>
-            Preview
-          </button>
-          {err && <div style={{ fontSize: 13, color: 'var(--red)', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '8px 12px' }}>{err}</div>}
-          {preview !== null && (
-            <div className={`bulk-delete-preview ${preview === 0 ? 'zero' : 'has-trades'}`}>
-              {preview === 0
-                ? 'No trades found in this date range.'
-                : `${preview} trade${preview !== 1 ? 's' : ''} will be permanently deleted.`}
-            </div>
-          )}
-          {preview > 0 && !confirm && (
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-              Click <strong>Confirm Delete</strong> below to proceed. This cannot be undone.
-            </p>
-          )}
-        </div>
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          {preview > 0 && !confirm && (
-            <button
-              className="btn"
-              style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
-              onClick={() => setConfirm(true)}
-            >
-              Confirm Delete
-            </button>
-          )}
-          {confirm && (
-            <button
-              className="btn"
-              style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
-              onClick={handleDelete}
-              disabled={busy}
-            >
-              {busy ? 'Deleting…' : `Yes, delete ${preview} trade${preview !== 1 ? 's' : ''}`}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Main list ────────────────────────────────────────────────────────────
 export default function TradeList() {
@@ -295,8 +196,9 @@ export default function TradeList() {
   const [loading,     setLoading]     = useState(true);
   const [expandedId,  setExpandedId]  = useState(null);
   const [showImport,  setShowImport]  = useState(false);
-  const [showBulkDel, setShowBulkDel] = useState(false);
   const [importToast, setImportToast] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [deleting,    setDeleting]    = useState(false);
   const navigate = useNavigate();
 
   const fetchTrades = useCallback(() => {
@@ -309,7 +211,24 @@ export default function TradeList() {
 
   useEffect(() => { fetchTrades(); }, []); // eslint-disable-line
 
-  const handleRowClick = (id) => setExpandedId(prev => prev === id ? null : id);
+  const handleRowClick = (id) => {
+    if (selectedIds.size > 0) return; // in select mode, row click is handled by checkbox
+    setExpandedId(prev => prev === id ? null : id);
+  };
+
+  const toggleSelect = (e, id) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+    setExpandedId(null);
+  };
+
+  const toggleAll = (e) => {
+    setSelectedIds(e.target.checked ? new Set(trades.map(t => t.id)) : new Set());
+  };
 
   const handleSave = async (id, payload) => {
     await axios.put(`/api/trades/${id}`, payload);
@@ -318,10 +237,22 @@ export default function TradeList() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this trade?')) return;
     await axios.delete(`/api/trades/${id}`);
     setExpandedId(null);
     setTrades(p => p.filter(t => t.id !== id));
+  };
+
+  const handleDeleteSelected = async () => {
+    setDeleting(true);
+    let count = 0;
+    for (const id of selectedIds) {
+      try { await axios.delete(`/api/trades/${id}`); count++; } catch {}
+    }
+    setSelectedIds(new Set());
+    setDeleting(false);
+    fetchTrades();
+    setImportToast(`${count} trade${count !== 1 ? 's' : ''} deleted.`);
+    setTimeout(() => setImportToast(''), 4000);
   };
 
   const handleImported = (count) => {
@@ -332,14 +263,29 @@ export default function TradeList() {
 
   const set = key => e => setFilters(f => ({ ...f, [key]: e.target.value }));
 
+  const allSelected = trades.length > 0 && selectedIds.size === trades.length;
+  const someSelected = selectedIds.size > 0;
+
   return (
     <div>
       <div className="page-header">
         <h1>Trades</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
-          <button className="btn btn-danger btn-sm" style={{ border: '1px solid #fca5a5' }} onClick={() => setShowBulkDel(true)}>Bulk Delete</button>
-          <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {someSelected ? (
+            <>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{selectedIds.size} selected</span>
+              <button className="btn" style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
+                onClick={handleDeleteSelected} disabled={deleting}>
+                {deleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setSelectedIds(new Set())}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -375,6 +321,9 @@ export default function TradeList() {
         <table className="trades-table">
           <thead>
             <tr>
+              <th style={{ width: 36 }}>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} title="Select all" />
+              </th>
               <th>Date</th>
               <th>Instrument</th>
               <th>Strategy</th>
@@ -388,13 +337,17 @@ export default function TradeList() {
             {trades.map(t => {
               const isExpanded = expandedId === t.id;
               const isDimmed   = expandedId != null && !isExpanded;
+              const isChecked  = selectedIds.has(t.id);
               return (
                 <React.Fragment key={t.id}>
                   <tr
-                    className={`data-row${isExpanded ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}`}
+                    className={`data-row${isExpanded ? ' selected' : ''}${isDimmed ? ' dimmed' : ''}${isChecked ? ' row-checked' : ''}`}
                     onClick={() => handleRowClick(t.id)}
                     title="Click to edit · Open full detail from edit panel"
                   >
+                    <td onClick={e => toggleSelect(e, t.id)} className="td-check">
+                      <input type="checkbox" checked={isChecked} onChange={() => {}} />
+                    </td>
                     <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 13 }}>{t.date}</td>
                     <td style={{ fontWeight: 700 }}>{t.instrument}</td>
                     <td style={{ color: 'var(--muted)', fontSize: 13 }}>{t.strategy || '—'}</td>
@@ -412,7 +365,7 @@ export default function TradeList() {
 
                   {isExpanded && (
                     <tr className="edit-row">
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <EditPanel
                           trade={t}
                           onSave={payload => handleSave(t.id, payload)}
@@ -434,18 +387,6 @@ export default function TradeList() {
         <ImportModal
           onClose={() => setShowImport(false)}
           onImported={handleImported}
-        />
-      )}
-
-      {showBulkDel && (
-        <BulkDeleteModal
-          onClose={() => setShowBulkDel(false)}
-          onDeleted={(count) => {
-            setShowBulkDel(false);
-            fetchTrades();
-            setImportToast(`${count} trade${count !== 1 ? 's' : ''} deleted.`);
-            setTimeout(() => setImportToast(''), 4000);
-          }}
         />
       )}
     </div>
