@@ -38,6 +38,51 @@ router.get('/', (req, res) => {
   res.json(db.prepare(query).all(...params).map(parseImages));
 });
 
+// GET /api/sessions/quote?date=YYYY-MM-DD  — fetch NIFTY OHLC from Yahoo Finance
+router.get('/quote', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date is required' });
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?range=30d&interval=1d&events=history';
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`Yahoo returned ${response.status}`);
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) throw new Error('No data in response');
+
+    const timestamps = result.timestamp;
+    const quote      = result.indicators.quote[0];
+    const adjClose   = result.indicators.adjclose?.[0]?.adjclose;
+
+    // Find the index matching the requested date
+    const idx = timestamps.findIndex(ts => {
+      const d = new Date(ts * 1000);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}` === date;
+    });
+
+    if (idx === -1) return res.status(404).json({ error: `No NIFTY data found for ${date}. Market may have been closed.` });
+
+    const round = v => v != null ? Math.round(v * 100) / 100 : null;
+    const prevClose = idx > 0 ? round(quote.close[idx - 1]) : round(result.meta.chartPreviousClose);
+
+    res.json({
+      date,
+      open:       round(quote.open[idx]),
+      high:       round(quote.high[idx]),
+      low:        round(quote.low[idx]),
+      close:      round(quote.close[idx]),
+      prev_close: prevClose,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Failed to fetch NIFTY data' });
+  }
+});
+
 // GET /api/sessions/:date
 router.get('/:date', (req, res) => {
   const session = db.prepare('SELECT * FROM market_sessions WHERE date = ?').get(req.params.date);
