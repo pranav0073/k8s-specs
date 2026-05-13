@@ -192,23 +192,35 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
 function BulkDeleteModal({ onClose, onDeleted }) {
   const today = new Date();
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const [from,    setFrom]    = useState(fmt(new Date(today.getFullYear(), today.getMonth(), 1)));
-  const [to,      setTo]      = useState(fmt(today));
-  const [preview, setPreview] = useState(null);
-  const [busy,    setBusy]    = useState(false);
+  const [from,     setFrom]     = useState(fmt(new Date(today.getFullYear(), today.getMonth(), 1)));
+  const [to,       setTo]       = useState(fmt(today));
+  const [preview,  setPreview]  = useState(null);
+  const [confirm,  setConfirm]  = useState(false);
+  const [busy,     setBusy]     = useState(false);
+  const [err,      setErr]      = useState('');
 
   const loadPreview = () => {
     if (!from || !to) return;
+    setErr('');
+    setPreview(null);
+    setConfirm(false);
     axios.get('/api/trades/bulk/preview', { params: { from, to } })
-      .then(r => setPreview(r.data.count));
+      .then(r => setPreview(r.data.count))
+      .catch(() => setErr('Failed to reach server. Make sure the backend is running.'));
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Permanently delete ${preview} trade${preview !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     setBusy(true);
-    const r = await axios.delete('/api/trades/bulk', { params: { from, to } });
-    onDeleted(r.data.deleted);
-    onClose();
+    setErr('');
+    try {
+      const r = await axios.delete('/api/trades/bulk', { params: { from, to } });
+      onDeleted(r.data.deleted);
+      onClose();
+    } catch {
+      setErr('Delete failed. Please try again.');
+      setBusy(false);
+      setConfirm(false);
+    }
   };
 
   return (
@@ -225,16 +237,17 @@ function BulkDeleteModal({ onClose, onDeleted }) {
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>From</label>
-              <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPreview(null); }} style={{ width: '100%' }} />
+              <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPreview(null); setConfirm(false); }} style={{ width: '100%' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>To</label>
-              <input type="date" value={to} onChange={e => { setTo(e.target.value); setPreview(null); }} style={{ width: '100%' }} />
+              <input type="date" value={to} onChange={e => { setTo(e.target.value); setPreview(null); setConfirm(false); }} style={{ width: '100%' }} />
             </div>
           </div>
           <button className="btn" onClick={loadPreview} disabled={!from || !to}>
             Preview
           </button>
+          {err && <div style={{ fontSize: 13, color: 'var(--red)', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '8px 12px' }}>{err}</div>}
           {preview !== null && (
             <div className={`bulk-delete-preview ${preview === 0 ? 'zero' : 'has-trades'}`}>
               {preview === 0
@@ -242,17 +255,33 @@ function BulkDeleteModal({ onClose, onDeleted }) {
                 : `${preview} trade${preview !== 1 ? 's' : ''} will be permanently deleted.`}
             </div>
           )}
+          {preview > 0 && !confirm && (
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+              Click <strong>Confirm Delete</strong> below to proceed. This cannot be undone.
+            </p>
+          )}
         </div>
         <div className="modal-actions">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button
-            className="btn"
-            style={{ background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' }}
-            onClick={handleDelete}
-            disabled={!preview || preview === 0 || busy}
-          >
-            {busy ? 'Deleting…' : `Delete ${preview ?? ''} Trade${preview !== 1 ? 's' : ''}`}
-          </button>
+          {preview > 0 && !confirm && (
+            <button
+              className="btn"
+              style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
+              onClick={() => setConfirm(true)}
+            >
+              Confirm Delete
+            </button>
+          )}
+          {confirm && (
+            <button
+              className="btn"
+              style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
+              onClick={handleDelete}
+              disabled={busy}
+            >
+              {busy ? 'Deleting…' : `Yes, delete ${preview} trade${preview !== 1 ? 's' : ''}`}
+            </button>
+          )}
         </div>
       </div>
     </div>
