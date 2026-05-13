@@ -1044,6 +1044,15 @@ textarea { resize: vertical; }
   margin-bottom: 14px;
 }
 
+.bulk-delete-preview {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bulk-delete-preview.zero      { background: var(--surface2); color: var(--muted); }
+.bulk-delete-preview.has-trades { background: #fef2f2; border: 1px solid #fca5a5; color: var(--red); }
+
 /* ── Changelog ────────────────────────────────────────────────────────────── */
 .cl-page .page-header { margin-bottom: 28px; }
 .cl-subtitle { color: var(--muted); font-size: 13px; margin-left: 12px; }

@@ -188,6 +188,77 @@ function EditPanel({ trade, onSave, onDelete, onCancel }) {
   );
 }
 
+// ── Bulk Delete Modal ────────────────────────────────────────────────────
+function BulkDeleteModal({ onClose, onDeleted }) {
+  const today = new Date();
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const [from,    setFrom]    = useState(fmt(new Date(today.getFullYear(), today.getMonth(), 1)));
+  const [to,      setTo]      = useState(fmt(today));
+  const [preview, setPreview] = useState(null);
+  const [busy,    setBusy]    = useState(false);
+
+  const loadPreview = () => {
+    if (!from || !to) return;
+    axios.get('/api/trades/bulk/preview', { params: { from, to } })
+      .then(r => setPreview(r.data.count));
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Permanently delete ${preview} trade${preview !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBusy(true);
+    const r = await axios.delete('/api/trades/bulk', { params: { from, to } });
+    onDeleted(r.data.deleted);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Bulk Delete Trades</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Delete all trades whose <strong>open date</strong> falls within the selected range.
+          </p>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>From</label>
+              <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPreview(null); }} style={{ width: '100%' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>To</label>
+              <input type="date" value={to} onChange={e => { setTo(e.target.value); setPreview(null); }} style={{ width: '100%' }} />
+            </div>
+          </div>
+          <button className="btn" onClick={loadPreview} disabled={!from || !to}>
+            Preview
+          </button>
+          {preview !== null && (
+            <div className={`bulk-delete-preview ${preview === 0 ? 'zero' : 'has-trades'}`}>
+              {preview === 0
+                ? 'No trades found in this date range.'
+                : `${preview} trade${preview !== 1 ? 's' : ''} will be permanently deleted.`}
+            </div>
+          )}
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button
+            className="btn"
+            style={{ background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' }}
+            onClick={handleDelete}
+            disabled={!preview || preview === 0 || busy}
+          >
+            {busy ? 'Deleting…' : `Delete ${preview ?? ''} Trade${preview !== 1 ? 's' : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main list ────────────────────────────────────────────────────────────
 export default function TradeList() {
   const [trades,      setTrades]      = useState([]);
@@ -195,6 +266,7 @@ export default function TradeList() {
   const [loading,     setLoading]     = useState(true);
   const [expandedId,  setExpandedId]  = useState(null);
   const [showImport,  setShowImport]  = useState(false);
+  const [showBulkDel, setShowBulkDel] = useState(false);
   const [importToast, setImportToast] = useState('');
   const navigate = useNavigate();
 
@@ -237,6 +309,7 @@ export default function TradeList() {
         <h1>Trades</h1>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
+          <button className="btn btn-danger btn-sm" style={{ border: '1px solid #fca5a5' }} onClick={() => setShowBulkDel(true)}>Bulk Delete</button>
           <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
         </div>
       </div>
@@ -332,6 +405,18 @@ export default function TradeList() {
         <ImportModal
           onClose={() => setShowImport(false)}
           onImported={handleImported}
+        />
+      )}
+
+      {showBulkDel && (
+        <BulkDeleteModal
+          onClose={() => setShowBulkDel(false)}
+          onDeleted={(count) => {
+            setShowBulkDel(false);
+            fetchTrades();
+            setImportToast(`${count} trade${count !== 1 ? 's' : ''} deleted.`);
+            setTimeout(() => setImportToast(''), 4000);
+          }}
         />
       )}
     </div>
