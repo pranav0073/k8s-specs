@@ -1204,6 +1204,322 @@ textarea { resize: vertical; }
 }
 .wr-bar-label { font-size: 12px; font-weight: 700; width: 34px; text-align: right; flex-shrink: 0; }
 
+/* ── Behavioral Analytics ─────────────────────────────────────────────────── */
+
+/* Discipline score card */
+.discipline-score-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 18px;
+  background: var(--surface2);
+}
+.discipline-green { border-color: #bbf7d0; background: #f0fdf4; }
+.discipline-amber  { border-color: #fde68a; background: #fffbeb; }
+.discipline-red   { border-color: #fecaca; background: #fef2f2; }
+
+.ds-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ds-number {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.ds-number.green { color: var(--green); }
+.ds-number.amber  { color: #d97706; }
+.ds-number.red   { color: var(--red); }
+.ds-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Behavioral metric grid */
+.behavioral-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.behavioral-metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.bm-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.bm-value {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.bm-value.green { color: var(--green); }
+.bm-value.amber  { color: #d97706; }
+.bm-value.red   { color: var(--red); }
+.bm-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Section sub-headers within behavioral card */
+.bm-section { margin-top: 18px; }
+.bm-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* Frequency heatmap */
+.freq-heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.freq-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+}
+.freq-legend {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Hold duration bars */
+.hold-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hold-bar-item {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px;
+  align-items: center;
+  gap: 10px;
+}
+.hold-bar-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hold-bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hold-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+.hold-bar-stat {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+.hold-bar-count {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* ── Weekly AI Report ─────────────────────────────────────────────────────── */
+.weekly-report {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-top: 4px;
+}
+.weekly-report h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 16px 0 6px;
+  color: var(--text);
+}
+.weekly-report h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 14px 0 5px;
+  color: var(--navy);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.weekly-report h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 12px 0 4px;
+  color: var(--text);
+}
+.weekly-report p {
+  margin: 6px 0;
+}
+.weekly-report ul, .weekly-report ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+.weekly-report li {
+  margin-bottom: 4px;
+}
+.weekly-report strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.report-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.report-generated {
+  font-size: 12px;
+  color: var(--muted);
+}
+.report-cached-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: var(--blue);
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Sanity Check Modal ───────────────────────────────────────────────────── */
+.sanity-modal {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  width: 100%;
+  max-width: 460px;
+  padding: 24px;
+}
+.sanity-modal-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+.sanity-icon {
+  display: block;
+  font-size: 32px;
+  margin-bottom: 6px;
+}
+.sanity-modal-header h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #78350f;
+  margin-bottom: 4px;
+}
+.sanity-subtitle {
+  font-size: 13px;
+  color: #92400e;
+}
+.sanity-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.sanity-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+.sanity-flag-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sanity-flag-text {
+  font-size: 13px;
+  color: #78350f;
+  line-height: 1.5;
+}
+.sanity-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.sanity-proceed {
+  background: #d97706 !important;
+  border-color: #d97706 !important;
+  color: #fff !important;
+}
+.sanity-proceed:hover {
+  background: #b45309 !important;
+  border-color: #b45309 !important;
+}
+
+/* ── Note sentiment dot ──────────────────────────────────────────────────── */
+.note-sentiment-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+/* Override the default label margin since wrap handles it */
+.note-sentiment-wrap label {
+  margin-bottom: 0;
+}
+.note-sentiment-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: help;
+  transition: background 0.2s;
+}
+
 /* ── Mobile responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
 

@@ -1,6 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import SanityCheckModal from './SanityCheckModal';
+
+// ── Client-side keyword sentiment (mirrors backend logic) ─────────────────────
+const RED_KEYWORDS   = ['panic','fomo','revenge','recover','desperate','hope','pray','gamble','quick profit','yolo','force','must recover'];
+const AMBER_KEYWORDS = ["let's see","might work","maybe","not sure","feeling","seems","risky"];
+
+function clientSentiment(note) {
+  if (!note || !note.trim()) return null;
+  const lower = note.toLowerCase();
+  for (const kw of RED_KEYWORDS)   { if (lower.includes(kw)) return 'red'; }
+  for (const kw of AMBER_KEYWORDS) { if (lower.includes(kw)) return 'amber'; }
+  return 'green';
+}
 
 const LOT_SIZE = 65;
 
@@ -35,7 +48,9 @@ export default function TradeForm() {
     { ...EMPTY_LEG, side: 'S' },
     { ...EMPTY_LEG, side: 'B' },
   ]);
-  const [error, setError] = useState('');
+  const [error, setError]               = useState('');
+  const [sanityFlags, setSanityFlags]   = useState(null);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
   const isEdit = Boolean(id);
 
   useEffect(() => {
@@ -84,8 +99,8 @@ export default function TradeForm() {
       }, 0)
     : null;
 
-  const handleSubmit = async e => {
-    e.preventDefault();
+  // The actual save logic, called after sanity check passes
+  const doSave = useCallback(async () => {
     setError('');
     const cleanLegs = legs.map(l => ({
       side:        l.side,
@@ -109,12 +124,64 @@ export default function TradeForm() {
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong');
     }
+  }, [legs, form, isEdit, id, navigate]);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError('');
+
+    // For new trades only, run sanity check
+    if (!isEdit) {
+      try {
+        const res = await axios.get(`/api/analytics/sanity-check?date=${form.date}`);
+        const flags = res.data;
+        const hasFlag = flags.tradesToday >= 2 || flags.lossStreak >= 2 || flags.lastTradeWasLoss;
+        if (hasFlag) {
+          setSanityFlags(flags);
+          setPendingSubmit(true);
+          return; // Wait for user confirmation in modal
+        }
+      } catch {
+        // If sanity check fails, proceed silently
+      }
+    }
+
+    await doSave();
   };
+
+  const onSanityProceed = async () => {
+    setSanityFlags(null);
+    setPendingSubmit(false);
+    await doSave();
+  };
+
+  const onSanityCancel = () => {
+    setSanityFlags(null);
+    setPendingSubmit(false);
+  };
+
+  const noteSentiment = clientSentiment(form.notes);
+  const sentimentColor = noteSentiment === 'red' ? '#dc2626' : noteSentiment === 'amber' ? '#d97706' : '#16a34a';
+  const sentimentTooltip = noteSentiment === 'red'
+    ? 'Red: emotional/risk keywords detected (panic, FOMO, revenge…)'
+    : noteSentiment === 'amber'
+    ? 'Amber: cautionary keywords detected (maybe, risky, not sure…)'
+    : noteSentiment === 'green'
+    ? 'Green: note appears calm and rational'
+    : '';
 
   return (
     <div className="trade-form-page">
       <h1>{isEdit ? 'Edit Trade' : 'Add Trade'}</h1>
       {error && <div className="error-msg">{error}</div>}
+
+      {pendingSubmit && sanityFlags && (
+        <SanityCheckModal
+          flags={sanityFlags}
+          onProceed={onSanityProceed}
+          onCancel={onSanityCancel}
+        />
+      )}
 
       <form onSubmit={handleSubmit}>
 
@@ -281,7 +348,16 @@ export default function TradeForm() {
           <h3>Notes &amp; Tags</h3>
           <div className="form-row">
             <div className="form-group full-width">
-              <label>Notes</label>
+              <div className="note-sentiment-wrap">
+                <label>Notes</label>
+                {noteSentiment && (
+                  <span
+                    className="note-sentiment-dot"
+                    style={{ background: sentimentColor }}
+                    title={sentimentTooltip}
+                  />
+                )}
+              </div>
               <textarea
                 value={form.notes}
                 onChange={set('notes')}

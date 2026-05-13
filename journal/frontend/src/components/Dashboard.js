@@ -4,6 +4,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
+import BehavioralMetrics from './BehavioralMetrics';
+import WeeklyReport      from './WeeklyReport';
 
 const GREEN = '#16a34a';
 const RED   = '#dc2626';
@@ -172,6 +174,10 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* ── Behavioral Analytics & AI Report ── */}
+      <BehavioralMetrics />
+      <WeeklyReport />
 
       {/* ── Discipline Insights ── */}
       <div className="chart-section insights-section">
