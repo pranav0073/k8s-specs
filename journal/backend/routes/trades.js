@@ -381,6 +381,53 @@ router.delete('/:id/comments/:date/images/:filename', (req, res) => {
 
 // ── AI Exit Plan ──────────────────────────────────────────────────────────────
 
+const MONTH_MAP = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+
+function lastThursdayOfMonth(year, mon) {
+  const last = new Date(year, mon + 1, 0);
+  const sub  = (last.getDay() - 4 + 7) % 7; // days back to Thursday
+  return new Date(year, mon, last.getDate() - sub);
+}
+
+// Handles all NSE expiry formats stored by the app:
+//   "May '26"   → monthly: last Thursday of May 2026
+//   "19 May"    → weekly:  nearest future May 19
+//   "29MAY2026" → standard NSE string
+//   ISO / other → native Date parse
+function parseExpiry(str) {
+  if (!str) return null;
+
+  // "May '26"
+  const monthly = str.match(/^([A-Za-z]{3})\s*'(\d{2})$/);
+  if (monthly) {
+    const mon = MONTH_MAP[monthly[1].toLowerCase()];
+    if (mon !== undefined) return lastThursdayOfMonth(2000 + parseInt(monthly[2], 10), mon);
+  }
+
+  // "19 May"
+  const weekly = str.match(/^(\d{1,2})\s+([A-Za-z]{3})$/);
+  if (weekly) {
+    const day = parseInt(weekly[1], 10);
+    const mon = MONTH_MAP[weekly[2].toLowerCase()];
+    if (mon !== undefined) {
+      const now = new Date();
+      let d = new Date(now.getFullYear(), mon, day);
+      if (d < now) d = new Date(now.getFullYear() + 1, mon, day);
+      return d;
+    }
+  }
+
+  // "29MAY2026"
+  const nse = str.match(/^(\d{2})([A-Za-z]{3})(\d{4})$/);
+  if (nse) {
+    const mon = MONTH_MAP[nse[2].toLowerCase()];
+    if (mon !== undefined) return new Date(parseInt(nse[3], 10), mon, parseInt(nse[1], 10));
+  }
+
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
 async function fetchYahoo(symbol, range = '5d') {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
   const r   = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
@@ -571,27 +618,19 @@ router.post('/:id/exit-plan', async (req, res) => {
 
   // Build prompt
   const today = new Date().toISOString().split('T')[0];
-  const legsText = legs.map(l =>
-    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots} lot(s) ${l.strike} ${l.type} expiry:${l.expiry || 'unknown'} @ ₹${l.entry_price}`
-  ).join('\n');
 
-  // Extract expiry and compute DTE explicitly so Claude never guesses
-  const expiries = legs.map(l => l.expiry).filter(Boolean);
-  const expiryStr = expiries[0] || null;
-  let dte = null;
-  if (expiryStr) {
-    // Handle formats: "2026-05-29", "29-May-2026", "29MAY2026", "29 May 2026"
-    let expiryDate = new Date(expiryStr);
-    if (isNaN(expiryDate)) {
-      // Try parsing "29MAY2026" → "29 May 2026"
-      const nse = expiryStr.replace(/^(\d{2})([A-Z]{3})(\d{4})$/, '$1 $2 $3');
-      expiryDate = new Date(nse);
-    }
-    if (!isNaN(expiryDate)) {
-      const todayMs = new Date(today).getTime();
-      dte = Math.round((expiryDate - todayMs) / 86400000);
-    }
-  }
+  // Resolve expiry to a real date using format-aware parser
+  const expiryStr  = legs.map(l => l.expiry).filter(Boolean)[0] || null;
+  const expiryDate = parseExpiry(expiryStr);
+  const dte        = expiryDate
+    ? Math.round((expiryDate.getTime() - new Date(today).getTime()) / 86400000)
+    : null;
+  const expiryIso  = expiryDate ? expiryDate.toISOString().split('T')[0] : null;
+
+  const legsText = legs.map(l =>
+    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots} lot(s) ${l.strike} ${l.type}` +
+    `  expiry: ${l.expiry || 'unknown'}${expiryIso ? ` (= ${expiryIso})` : ''} @ ₹${l.entry_price}`
+  ).join('\n');
 
   // ── Greeks & option value per leg (Black-Scholes) ──────────────────────────
   const iv     = vix?.latest ? vix.latest / 100 : (hv10 ? parseFloat(hv10) / 100 : 0.15);
@@ -636,8 +675,8 @@ TRADE:
 ${legsText}
 
 PRE-COMPUTED TRADE MECHANICS — use ONLY these figures, do NOT recalculate:
-  Expiry date:   ${expiryStr ?? 'not specified in legs'}
-  DTE (days to expiry from today): ${dte != null ? dte : 'unknown — use the expiry date from the legs above'}
+  Expiry date:   ${expiryIso ?? expiryStr ?? 'not specified in legs'}
+  DTE (days to expiry from today): ${dte != null ? dte : 'unknown'}
   Lot size:      ${LOT_SIZE} units per lot
   Long strike:   ${longStrike ?? '—'}  (${legType === 'CE' ? 'Call' : 'Put'})
   Short strike:  ${shortStrike ?? '—'}
