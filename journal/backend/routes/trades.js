@@ -523,7 +523,7 @@ router.post('/:id/exit-plan', async (req, res) => {
   // Build prompt
   const today = new Date().toISOString().split('T')[0];
   const legsText = legs.map(l =>
-    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots}L ${l.strike}${l.type} ${l.expiry || ''} @ ₹${l.entry_price}`
+    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots} lot(s) ${l.strike} ${l.type} ${l.expiry || ''} @ ₹${l.entry_price}`
   ).join('\n');
 
   const prompt = `You are an expert NIFTY options trader. Provide a precise, actionable exit plan for the trade below.
