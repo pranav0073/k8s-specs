@@ -1,10 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
 
 // ── AI Exit Plan panel ────────────────────────────────────────────────────────
+
+const SECTION_META = {
+  'Outlook':                    { icon: '📊', cls: 'ep-outlook',  label: 'Outlook' },
+  'Profit Target':              { icon: '🎯', cls: 'ep-target',   label: 'Profit Target' },
+  'Stop Loss':                  { icon: '🛑', cls: 'ep-stop',     label: 'Stop Loss' },
+  'Time-based Rules':           { icon: '⏱',  cls: 'ep-time',     label: 'Time Rules' },
+  'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust',   label: 'Adjustment' },
+  'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels',   label: 'Key Levels' },
+  'Risk Rating':                { icon: '⚡', cls: 'ep-risk',     label: 'Risk' },
+};
+
 function ExitPlan({ tradeId }) {
   const [plan,      setPlan]      = useState(null);
   const [planAt,    setPlanAt]    = useState(null);
@@ -32,35 +44,14 @@ function ExitPlan({ tradeId }) {
     }
   };
 
-  // Render markdown sections as structured cards
-  function renderPlan(text) {
-    if (!text) return null;
-    const sections = text.split(/^## /m).filter(Boolean);
-    const sectionMeta = {
-      'Outlook':                    { icon: '📊', cls: 'ep-outlook' },
-      'Profit Target':              { icon: '🎯', cls: 'ep-target' },
-      'Stop Loss':                  { icon: '🛑', cls: 'ep-stop' },
-      'Time-based Rules':           { icon: '⏱',  cls: 'ep-time' },
-      'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust' },
-      'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels' },
-      'Risk Rating':                { icon: '⚡', cls: 'ep-risk' },
-    };
-    return (
-      <div className="ep-sections">
-        {sections.map((sec, i) => {
-          const newline = sec.indexOf('\n');
-          const title   = newline === -1 ? sec.trim() : sec.slice(0, newline).trim();
-          const body    = newline === -1 ? '' : sec.slice(newline + 1).trim();
-          const meta    = sectionMeta[title] || { icon: '•', cls: '' };
-          return (
-            <div key={i} className={`ep-section ${meta.cls}`}>
-              <div className="ep-section-title">{meta.icon} {title}</div>
-              <div className="ep-section-body">{body}</div>
-            </div>
-          );
-        })}
-      </div>
-    );
+  function parseSections(text) {
+    return text.split(/^## /m).filter(Boolean).map(sec => {
+      const nl    = sec.indexOf('\n');
+      const title = nl === -1 ? sec.trim() : sec.slice(0, nl).trim();
+      const body  = nl === -1 ? '' : sec.slice(nl + 1).trim();
+      const meta  = SECTION_META[title] || { icon: '•', cls: '', label: title };
+      return { title, body, meta };
+    });
   }
 
   if (loading) return <div className="loading" style={{ padding: 32 }}>Loading…</div>;
@@ -108,7 +99,21 @@ function ExitPlan({ tradeId }) {
         </div>
       )}
 
-      {plan && !generating && renderPlan(plan)}
+      {plan && !generating && (
+        <div className="ep-sections">
+          {parseSections(plan).map((sec, i) => (
+            <div key={i} className={`ep-section ${sec.meta.cls}`}>
+              <div className="ep-section-title">
+                <span className="ep-section-icon">{sec.meta.icon}</span>
+                {sec.meta.label}
+              </div>
+              <div className="ep-section-body ep-md">
+                <ReactMarkdown>{sec.body}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {plan && (
         <div className="ep-disclaimer">
