@@ -246,7 +246,7 @@ router.get('/quotes', async (req, res) => {
       return { ...l, symbol: sym, quote: q ? { ...q, ...greeks } : null };
     });
 
-    res.json({ quotes, legQuotes });
+    res.json({ quotes, legQuotes, niftySpot });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

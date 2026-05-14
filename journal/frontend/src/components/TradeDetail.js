@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
 import KiteLiveQuotes from './KiteLiveQuotes';
+import PayoffGraph from './PayoffGraph';
 
 // ── AI Exit Plan panel ────────────────────────────────────────────────────────
 
@@ -456,7 +457,10 @@ export default function TradeDetail() {
           ...(trade.status === 'open' ? [
             { key: 'exitplan',    label: '✦ AI Exit Plan' },
             { key: 'livequotes',  label: '⚡ Live Quotes' },
-          ] : []),
+            { key: 'payoff',      label: '📊 Payoff' },
+          ] : [
+            { key: 'payoff',      label: '📊 Payoff' },
+          ]),
         ].map(t => (
           <button
             key={t.key}
@@ -639,6 +643,11 @@ export default function TradeDetail() {
       {/* ── Tab: Live Quotes ────────────────────── */}
       {tab === 'livequotes' && trade.status === 'open' && (
         <KiteLiveQuotes tradeId={id} />
+      )}
+
+      {/* ── Tab: Payoff Graph ───────────────────── */}
+      {tab === 'payoff' && (
+        <PayoffGraph trade={trade} />
       )}
     </div>
   );
