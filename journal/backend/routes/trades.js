@@ -589,13 +589,6 @@ Respond in this EXACT format with no other text:
 
 ## Risk Rating
 [One line: Low / Medium / High risk, with reason]`;
-[Concrete adjustment or defensive action with specific levels]
-
-## Key Levels to Watch
-[2-4 support/resistance levels with brief reasoning]
-
-## Risk Rating
-[One line: Low / Medium / High risk, with reason]`;
 
   try {
     const Anthropic = require('@anthropic-ai/sdk');
