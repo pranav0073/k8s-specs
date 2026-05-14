@@ -16,6 +16,75 @@ function lastTuesdayOfMonth(year, mon) {
   return new Date(year, mon, last.getDate() - sub);
 }
 
+function parseExpiry(str) {
+  if (!str) return null;
+  const monthly = str.match(/^([A-Za-z]{3})\s*'(\d{2})$/);
+  if (monthly) {
+    const mon = MONTH_MAP[monthly[1].toLowerCase()];
+    const year = 2000 + parseInt(monthly[2], 10);
+    return lastTuesdayOfMonth(year, mon);
+  }
+  const weekly = str.match(/^(\d{1,2})\s+([A-Za-z]{3})$/);
+  if (weekly) {
+    const day = parseInt(weekly[1], 10);
+    const mon = MONTH_MAP[weekly[2].toLowerCase()];
+    const now = new Date();
+    let d = new Date(now.getFullYear(), mon, day);
+    if (d < now) d = new Date(now.getFullYear() + 1, mon, day);
+    return d;
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+// Black-Scholes helpers
+function normCDF(x) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const t = 1 / (1 + p * Math.abs(x) / Math.sqrt(2));
+  const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x/2);
+  return 0.5 * (1 + sign * y);
+}
+function normPDF(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+
+function bsmPrice(S, K, T, sigma, type, r=0.065) {
+  if (T <= 0) return Math.max(0, type === 'CE' ? S - K : K - S);
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  if (type === 'CE') return S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2);
+  return K*Math.exp(-r*T)*normCDF(-d2) - S*normCDF(-d1);
+}
+
+function impliedVol(S, K, T, marketPrice, type) {
+  if (T <= 0 || marketPrice <= 0) return null;
+  let sigma = 0.2;
+  for (let i = 0; i < 100; i++) {
+    const price = bsmPrice(S, K, T, sigma, type);
+    const d1    = (Math.log(S/K) + (0.065 + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+    const vega  = S * normPDF(d1) * Math.sqrt(T);
+    const diff  = price - marketPrice;
+    if (Math.abs(diff) < 0.01) break;
+    if (vega < 1e-10) { sigma *= 1.5; continue; }
+    sigma -= diff / vega;
+    if (sigma <= 0) sigma = 0.001;
+  }
+  return sigma > 0 && sigma < 10 ? sigma : null;
+}
+
+function computeGreeks(S, K, T, sigma, type, r=0.065) {
+  if (!sigma || T <= 0) return {};
+  const sqrtT = Math.sqrt(T);
+  const d1    = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*sqrtT);
+  const d2    = d1 - sigma*sqrtT;
+  const delta = type === 'CE' ? normCDF(d1) : normCDF(d1) - 1;
+  const gamma = normPDF(d1) / (S * sigma * sqrtT);
+  const vega  = S * normPDF(d1) * sqrtT / 100;
+  const theta = type === 'CE'
+    ? (-(S*normPDF(d1)*sigma)/(2*sqrtT) - r*K*Math.exp(-r*T)*normCDF(d2))  / 365
+    : (-(S*normPDF(d1)*sigma)/(2*sqrtT) + r*K*Math.exp(-r*T)*normCDF(-d2)) / 365;
+  return { delta, gamma, vega, theta };
+}
+
 function getConfig() {
   return db.prepare('SELECT * FROM kite_config WHERE id = 1').get() || {};
 }
@@ -150,23 +219,31 @@ router.get('/quotes', async (req, res) => {
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: data.message || 'Kite API error' });
 
+    // Also fetch NIFTY spot for Greeks computation
+    const spotR = await fetch(`${KITE_BASE}/quote?i=NSE:NIFTY+50`, {
+      headers: { 'X-Kite-Version': '3', 'Authorization': `token ${cfg.api_key}:${cfg.access_token}` },
+    });
+    const spotData = await spotR.json();
+    const niftySpot = spotData.data?.['NSE:NIFTY 50']?.last_price ?? null;
+
+    const now = Date.now();
     const quotes = {};
     for (const [k, v] of Object.entries(data.data || {})) {
-      quotes[k.replace(/^NFO:/, '')] = {
-        ltp:    v.last_price,
-        change: v.net_change,
-        delta:  v.greeks?.delta  ?? null,
-        theta:  v.greeks?.theta  ?? null,
-        gamma:  v.greeks?.gamma  ?? null,
-        vega:   v.greeks?.vega   ?? null,
-        iv:     v.greeks?.iv     ?? null,
-        oi:     v.oi             ?? null,
-      };
+      const sym = k.replace(/^NFO:/, '');
+      quotes[sym] = { ltp: v.last_price, change: v.net_change, oi: v.oi ?? null };
     }
 
     const legQuotes = legs.map(l => {
       const sym = buildSymbol(l);
-      return { ...l, symbol: sym, quote: sym ? (quotes[sym] ?? null) : null };
+      const q   = sym ? (quotes[sym] ?? null) : null;
+      let greeks = {};
+      if (q && niftySpot && l.strike && l.type && l.expiry) {
+        const expiryDate = parseExpiry(l.expiry);
+        const T = expiryDate ? Math.max(0, (expiryDate - now) / (1000*60*60*24*365)) : 0;
+        const iv = impliedVol(niftySpot, parseFloat(l.strike), T, q.ltp, l.type);
+        greeks = { iv, ...computeGreeks(niftySpot, parseFloat(l.strike), T, iv, l.type) };
+      }
+      return { ...l, symbol: sym, quote: q ? { ...q, ...greeks } : null };
     });
 
     res.json({ quotes, legQuotes });
