@@ -500,14 +500,22 @@ router.post('/:id/exit-plan', async (req, res) => {
   const longStrike  = buyLegs.length  ? Math.min(...buyLegs.map(l => l.strike))  : null;
   const shortStrike = sellLegs.length ? Math.max(...sellLegs.map(l => l.strike)) : null;
 
-  // Breakeven (simple: works for single-spread structures)
+  // Breakeven
   let breakeven = null;
   const legType = buyLegs[0]?.type;
   if (longStrike && netPerUnit != null) {
     breakeven = legType === 'CE'
-      ? Math.round(longStrike + Math.abs(netPerUnit))   // bull call / bear call
-      : Math.round(longStrike - Math.abs(netPerUnit));  // bear put / bull put
+      ? Math.round(longStrike + Math.abs(netPerUnit))
+      : Math.round(longStrike - Math.abs(netPerUnit));
   }
+
+  // Max profit / max loss for spread (pre-computed, use these in prompt)
+  const totalLots   = legs.reduce((s, l) => s + (l.lots || 1), 0) / 2; // lots per side
+  const spreadWidth = (longStrike && shortStrike) ? Math.abs(shortStrike - longStrike) : null;
+  const maxGrossRs  = spreadWidth ? spreadWidth * totalLots * LOT_SIZE : null;
+  const maxProfitRs = maxGrossRs  ? Math.round(maxGrossRs - Math.abs(netPremiumRs))  : null;
+  const maxLossRs   = Math.round(Math.abs(netPremiumRs));
+  const roiPct      = maxProfitRs != null ? ((maxProfitRs / maxLossRs) * 100).toFixed(1) : null;
 
   // Spot vs key strikes
   const spotVsLong  = spot && longStrike  ? (spot - longStrike).toFixed(0)  : null;
@@ -541,14 +549,19 @@ TRADE:
   Legs:
 ${legsText}
 
-PRE-COMPUTED TRADE MECHANICS (use these exact figures):
+PRE-COMPUTED TRADE MECHANICS — use ONLY these figures, do NOT recalculate:
+  Lot size:      ${LOT_SIZE} units per lot
   Long strike:   ${longStrike ?? '—'}  (${legType === 'CE' ? 'Call' : 'Put'})
   Short strike:  ${shortStrike ?? '—'}
+  Spread width:  ${spreadWidth ?? '—'} pts
   Breakeven:     ${breakeven ?? '—'} (NIFTY must be ${legType === 'CE' ? 'above' : 'below'} this at expiry to profit)
+  Max loss:      ₹${maxLossRs} (premium paid — full loss if NIFTY below long strike at expiry)
+  Max profit:    ₹${maxProfitRs ?? '—'} (if NIFTY at/above short strike at expiry)
+  ROI at max profit: ${roiPct ?? '—'}%
   NIFTY spot now: ${spot?.toFixed(2) ?? 'unavailable'}
   Spot vs long strike:  ${spotVsLong != null ? (Number(spotVsLong) >= 0 ? '+' : '') + spotVsLong + ' pts (' + (Number(spotVsLong) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
   Spot vs short strike: ${spotVsShort != null ? (Number(spotVsShort) >= 0 ? '+' : '') + spotVsShort + ' pts (' + (Number(spotVsShort) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
-  Spot vs breakeven:    ${spotVsBE != null ? (Number(spotVsBE) >= 0 ? '+' : '') + spotVsBE + ' pts (' + (Number(spotVsBE) >= 0 ? 'ABOVE — trade profitable' : 'BELOW — trade losing') + ')' : '—'}
+  Spot vs breakeven:    ${spotVsBE != null ? (Number(spotVsBE) >= 0 ? '+' : '') + spotVsBE + ' pts (' + (Number(spotVsBE) >= 0 ? 'ABOVE — trade profitable at expiry' : 'BELOW — trade losing at expiry') + ')' : '—'}
   NIFTY move since entry: ${niftyMovePct != null ? (Number(niftyMovePct) >= 0 ? '+' : '') + niftyMovePct + '%' : '—'}
 
 VOLATILITY & MOMENTUM:
