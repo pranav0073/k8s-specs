@@ -1,31 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
 
 // ── AI Exit Plan panel ────────────────────────────────────────────────────────
-
-// Render a markdown string fragment into React elements (bold, bullets, line breaks)
-function renderMd(text) {
-  if (!text) return null;
-  return text.split('\n').map((line, li) => {
-    const isBullet = /^[-•]\s+/.test(line);
-    const content  = (isBullet ? line.replace(/^[-•]\s+/, '') : line).trim();
-    if (!content) return <br key={li} />;
-
-    // Split on **bold** markers
-    const parts = content.split(/(\*\*[^*]+\*\*)/g).map((part, pi) =>
-      part.startsWith('**') && part.endsWith('**')
-        ? <strong key={pi}>{part.slice(2, -2)}</strong>
-        : part
-    );
-
-    return isBullet
-      ? <div key={li} className="ep-bullet"><span className="ep-bullet-dot">▸</span><span>{parts}</span></div>
-      : <div key={li} className="ep-line">{parts}</div>;
-  });
-}
 
 const SECTION_META = {
   'Outlook':                    { icon: '📊', cls: 'ep-outlook',  label: 'Outlook' },
@@ -69,7 +49,8 @@ function ExitPlan({ tradeId }) {
       const nl    = sec.indexOf('\n');
       const title = nl === -1 ? sec.trim() : sec.slice(0, nl).trim();
       const body  = nl === -1 ? '' : sec.slice(nl + 1).trim();
-      return { title, body, meta: SECTION_META[title] || { icon: '•', cls: '', label: title } };
+      const meta  = SECTION_META[title] || { icon: '•', cls: '', label: title };
+      return { title, body, meta };
     });
   }
 
@@ -126,7 +107,9 @@ function ExitPlan({ tradeId }) {
                 <span className="ep-section-icon">{sec.meta.icon}</span>
                 {sec.meta.label}
               </div>
-              <div className="ep-section-body">{renderMd(sec.body)}</div>
+              <div className="ep-section-body ep-md">
+                <ReactMarkdown>{sec.body}</ReactMarkdown>
+              </div>
             </div>
           ))}
         </div>

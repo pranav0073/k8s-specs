@@ -1685,20 +1685,14 @@ textarea { resize: none; overflow: hidden; min-height: 42px; }
   padding: 10px 14px 12px;
 }
 
-/* Inline markdown elements */
-.ep-line   { margin-bottom: 2px; }
-.ep-bullet {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  margin: 3px 0;
-}
-.ep-bullet-dot {
-  color: var(--muted);
-  flex-shrink: 0;
-  margin-top: 2px;
-  font-size: 10px;
-}
+/* react-markdown output inside exit plan sections */
+.ep-md p       { margin: 0 0 6px; }
+.ep-md p:last-child { margin-bottom: 0; }
+.ep-md ul, .ep-md ol { margin: 4px 0 6px 16px; padding: 0; }
+.ep-md li      { margin: 2px 0; }
+.ep-md strong  { font-weight: 700; }
+.ep-md em      { font-style: italic; }
+.ep-md code    { font-family: monospace; background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 
 /* Section accent colours — left border + title tint */
 .ep-outlook { border-left-color: #2563eb; background: #f0f6ff; }
