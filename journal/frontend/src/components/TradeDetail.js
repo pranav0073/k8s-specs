@@ -5,6 +5,38 @@ import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
 
 // ── AI Exit Plan panel ────────────────────────────────────────────────────────
+
+// Render a markdown string fragment into React elements (bold, bullets, line breaks)
+function renderMd(text) {
+  if (!text) return null;
+  return text.split('\n').map((line, li) => {
+    const isBullet = /^[-•]\s+/.test(line);
+    const content  = (isBullet ? line.replace(/^[-•]\s+/, '') : line).trim();
+    if (!content) return <br key={li} />;
+
+    // Split on **bold** markers
+    const parts = content.split(/(\*\*[^*]+\*\*)/g).map((part, pi) =>
+      part.startsWith('**') && part.endsWith('**')
+        ? <strong key={pi}>{part.slice(2, -2)}</strong>
+        : part
+    );
+
+    return isBullet
+      ? <div key={li} className="ep-bullet"><span className="ep-bullet-dot">▸</span><span>{parts}</span></div>
+      : <div key={li} className="ep-line">{parts}</div>;
+  });
+}
+
+const SECTION_META = {
+  'Outlook':                    { icon: '📊', cls: 'ep-outlook',  label: 'Outlook' },
+  'Profit Target':              { icon: '🎯', cls: 'ep-target',   label: 'Profit Target' },
+  'Stop Loss':                  { icon: '🛑', cls: 'ep-stop',     label: 'Stop Loss' },
+  'Time-based Rules':           { icon: '⏱',  cls: 'ep-time',     label: 'Time Rules' },
+  'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust',   label: 'Adjustment' },
+  'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels',   label: 'Key Levels' },
+  'Risk Rating':                { icon: '⚡', cls: 'ep-risk',     label: 'Risk' },
+};
+
 function ExitPlan({ tradeId }) {
   const [plan,      setPlan]      = useState(null);
   const [planAt,    setPlanAt]    = useState(null);
@@ -32,35 +64,13 @@ function ExitPlan({ tradeId }) {
     }
   };
 
-  // Render markdown sections as structured cards
-  function renderPlan(text) {
-    if (!text) return null;
-    const sections = text.split(/^## /m).filter(Boolean);
-    const sectionMeta = {
-      'Outlook':                    { icon: '📊', cls: 'ep-outlook' },
-      'Profit Target':              { icon: '🎯', cls: 'ep-target' },
-      'Stop Loss':                  { icon: '🛑', cls: 'ep-stop' },
-      'Time-based Rules':           { icon: '⏱',  cls: 'ep-time' },
-      'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust' },
-      'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels' },
-      'Risk Rating':                { icon: '⚡', cls: 'ep-risk' },
-    };
-    return (
-      <div className="ep-sections">
-        {sections.map((sec, i) => {
-          const newline = sec.indexOf('\n');
-          const title   = newline === -1 ? sec.trim() : sec.slice(0, newline).trim();
-          const body    = newline === -1 ? '' : sec.slice(newline + 1).trim();
-          const meta    = sectionMeta[title] || { icon: '•', cls: '' };
-          return (
-            <div key={i} className={`ep-section ${meta.cls}`}>
-              <div className="ep-section-title">{meta.icon} {title}</div>
-              <div className="ep-section-body">{body}</div>
-            </div>
-          );
-        })}
-      </div>
-    );
+  function parseSections(text) {
+    return text.split(/^## /m).filter(Boolean).map(sec => {
+      const nl    = sec.indexOf('\n');
+      const title = nl === -1 ? sec.trim() : sec.slice(0, nl).trim();
+      const body  = nl === -1 ? '' : sec.slice(nl + 1).trim();
+      return { title, body, meta: SECTION_META[title] || { icon: '•', cls: '', label: title } };
+    });
   }
 
   if (loading) return <div className="loading" style={{ padding: 32 }}>Loading…</div>;
@@ -108,7 +118,19 @@ function ExitPlan({ tradeId }) {
         </div>
       )}
 
-      {plan && !generating && renderPlan(plan)}
+      {plan && !generating && (
+        <div className="ep-sections">
+          {parseSections(plan).map((sec, i) => (
+            <div key={i} className={`ep-section ${sec.meta.cls}`}>
+              <div className="ep-section-title">
+                <span className="ep-section-icon">{sec.meta.icon}</span>
+                {sec.meta.label}
+              </div>
+              <div className="ep-section-body">{renderMd(sec.body)}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {plan && (
         <div className="ep-disclaimer">
