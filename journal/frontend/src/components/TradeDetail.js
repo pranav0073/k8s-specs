@@ -457,10 +457,7 @@ export default function TradeDetail() {
           ...(trade.status === 'open' ? [
             { key: 'exitplan',    label: '✦ AI Exit Plan' },
             { key: 'livequotes',  label: '⚡ Live Quotes' },
-            { key: 'payoff',      label: '📊 Payoff' },
-          ] : [
-            { key: 'payoff',      label: '📊 Payoff' },
-          ]),
+          ] : []),
         ].map(t => (
           <button
             key={t.key}
@@ -645,10 +642,8 @@ export default function TradeDetail() {
         <KiteLiveQuotes tradeId={id} />
       )}
 
-      {/* ── Tab: Payoff Graph ───────────────────── */}
-      {tab === 'payoff' && (
-        <PayoffGraph trade={trade} />
-      )}
+      {/* ── Payoff Graph — always shown below tabs ── */}
+      <PayoffGraph trade={trade} />
     </div>
   );
 }
