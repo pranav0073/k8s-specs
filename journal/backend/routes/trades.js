@@ -478,9 +478,47 @@ router.post('/:id/exit-plan', async (req, res) => {
     ? Math.round(nifty.latest * (volForMove / 100) * Math.sqrt(5 / 252))
     : null;
 
-  // Candlestick patterns
-  const recentSessions = sessions.slice(-6);
-  const patterns = detectPatterns(recentSessions);
+  // ── Pre-compute trade mechanics so Claude doesn't have to ──────────────────
+  const spot = nifty?.latest ?? null;
+
+  // Candlestick patterns from stored sessions
+  const patterns = detectPatterns(sessions.slice(-6));
+
+  // Net debit (+) or credit (-) in rupees
+  const netPremiumRs = legs.reduce((sum, l) => {
+    const sign = l.side === 'B' ? 1 : -1;
+    return sum + sign * (l.entry_price || 0) * LOT_SIZE * (l.lots || 1);
+  }, 0);
+  const isDebit  = netPremiumRs > 0;
+  const netPerUnit = legs.length > 0
+    ? legs.reduce((s, l) => s + (l.side === 'B' ? 1 : -1) * (l.entry_price || 0), 0)
+    : null;
+
+  // Identify long/short strikes for spread strategies
+  const buyLegs  = legs.filter(l => l.side === 'B');
+  const sellLegs = legs.filter(l => l.side === 'S');
+  const longStrike  = buyLegs.length  ? Math.min(...buyLegs.map(l => l.strike))  : null;
+  const shortStrike = sellLegs.length ? Math.max(...sellLegs.map(l => l.strike)) : null;
+
+  // Breakeven (simple: works for single-spread structures)
+  let breakeven = null;
+  const legType = buyLegs[0]?.type;
+  if (longStrike && netPerUnit != null) {
+    breakeven = legType === 'CE'
+      ? Math.round(longStrike + Math.abs(netPerUnit))   // bull call / bear call
+      : Math.round(longStrike - Math.abs(netPerUnit));  // bear put / bull put
+  }
+
+  // Spot vs key strikes
+  const spotVsLong  = spot && longStrike  ? (spot - longStrike).toFixed(0)  : null;
+  const spotVsShort = spot && shortStrike ? (spot - shortStrike).toFixed(0) : null;
+  const spotVsBE    = spot && breakeven   ? (spot - breakeven).toFixed(0)   : null;
+
+  // NIFTY move since entry
+  const niftyAtEntry = sessions.find(s => s.date === trade.date)?.close;
+  const niftyMovePct = niftyAtEntry && spot
+    ? ((spot - niftyAtEntry) / niftyAtEntry * 100).toFixed(2)
+    : null;
 
   // Build prompt
   const today = new Date().toISOString().split('T')[0];
@@ -488,38 +526,43 @@ router.post('/:id/exit-plan', async (req, res) => {
     `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots}L ${l.strike}${l.type} ${l.expiry || ''} @ ₹${l.entry_price}`
   ).join('\n');
 
-  const niftyAtEntry = sessions.find(s => s.date === trade.date)?.close;
-  const niftyMove = niftyAtEntry && nifty?.latest
-    ? ((nifty.latest - niftyAtEntry) / niftyAtEntry * 100).toFixed(2)
-    : null;
-
   const prompt = `You are an expert NIFTY options trader. Provide a precise, actionable exit plan for the trade below.
+Use ONLY the pre-computed figures provided — do NOT recalculate or second-guess them.
 
 TODAY: ${today}
 
 TRADE:
-  Instrument: ${trade.instrument}
-  Strategy:   ${trade.strategy || 'Options Trade'}
-  Entry Date: ${trade.date}
-  Status:     ${trade.status}
+  Instrument:  ${trade.instrument}
+  Strategy:    ${trade.strategy || 'Options Trade'}
+  Entry Date:  ${trade.date}
+  Status:      ${trade.status}
+  Structure:   ${isDebit ? 'DEBIT spread (premium paid — theta works AGAINST this position)' : 'CREDIT spread (premium received — theta works FOR this position)'}
+  Net premium: ${isDebit ? 'Paid' : 'Received'} ₹${Math.abs(netPremiumRs).toFixed(0)} total
   Legs:
 ${legsText}
 
-LIVE NIFTY:
-  Spot: ${nifty?.latest?.toFixed(2) ?? 'unavailable'}${niftyAtEntry ? `  (entry day close: ${niftyAtEntry}, move since entry: ${niftyMove}%)` : ''}
-  ATR (14d): ${atr ?? '—'} pts
+PRE-COMPUTED TRADE MECHANICS (use these exact figures):
+  Long strike:   ${longStrike ?? '—'}  (${legType === 'CE' ? 'Call' : 'Put'})
+  Short strike:  ${shortStrike ?? '—'}
+  Breakeven:     ${breakeven ?? '—'} (NIFTY must be ${legType === 'CE' ? 'above' : 'below'} this at expiry to profit)
+  NIFTY spot now: ${spot?.toFixed(2) ?? 'unavailable'}
+  Spot vs long strike:  ${spotVsLong != null ? (Number(spotVsLong) >= 0 ? '+' : '') + spotVsLong + ' pts (' + (Number(spotVsLong) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
+  Spot vs short strike: ${spotVsShort != null ? (Number(spotVsShort) >= 0 ? '+' : '') + spotVsShort + ' pts (' + (Number(spotVsShort) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
+  Spot vs breakeven:    ${spotVsBE != null ? (Number(spotVsBE) >= 0 ? '+' : '') + spotVsBE + ' pts (' + (Number(spotVsBE) >= 0 ? 'ABOVE — trade profitable' : 'BELOW — trade losing') + ')' : '—'}
+  NIFTY move since entry: ${niftyMovePct != null ? (Number(niftyMovePct) >= 0 ? '+' : '') + niftyMovePct + '%' : '—'}
+
+VOLATILITY & MOMENTUM:
+  India VIX:  ${vix?.latest?.toFixed(2) ?? 'unavailable'}  (${vix?.changePct != null ? (Number(vix.changePct) >= 0 ? '+' : '') + vix.changePct + '% today' : ''})
+  ${vix?.latest && hv10 ? `VIX/HV ratio: ${(vix.latest / parseFloat(hv10)).toFixed(2)}× — options are ${vix.latest / parseFloat(hv10) > 1.2 ? 'OVERPRICED vs history (sell bias)' : vix.latest / parseFloat(hv10) < 0.8 ? 'CHEAP vs history (buy bias)' : 'fairly priced'}` : ''}
   HV-10: ${hv10 ?? '—'}%  HV-20: ${hv20 ?? '—'}%
-  5-day trend: ${trendPct != null ? (trendPct > 0 ? '+' : '') + trendPct + '%' : '—'}
+  ATR (14d): ${atr ?? '—'} pts/day
+  5-day trend: ${trendPct != null ? (Number(trendPct) >= 0 ? '+' : '') + trendPct + '%' : '—'}
   Weekly expected move: ${weeklyMove ? `±${weeklyMove} pts` : '—'}
 
-INDIA VIX:
-  Current: ${vix?.latest?.toFixed(2) ?? 'unavailable'}  (${vix?.changePct != null ? (vix.changePct > 0 ? '+' : '') + vix.changePct + '% today' : ''})
-  ${vix?.latest && hv10 ? `VIX/HV ratio: ${(vix.latest / parseFloat(hv10)).toFixed(2)}× ${vix.latest / parseFloat(hv10) > 1.2 ? '→ options overpriced (sell bias)' : vix.latest / parseFloat(hv10) < 0.8 ? '→ options cheap (buy bias)' : '→ fairly priced'}` : ''}
-
-GLOBAL MARKETS (today):
-  S&P 500:      ${sp500 ? `${sp500.changePct > 0 ? '+' : ''}${sp500.changePct}%` : 'unavailable'}
-  Crude Oil:    ${crude ? `$${crude.latest?.toFixed(1)}  (${crude.changePct > 0 ? '+' : ''}${crude.changePct}%)` : 'unavailable'}
-  Dollar Index: ${dxy   ? `${dxy.latest?.toFixed(2)}  (${dxy.changePct > 0 ? '+' : ''}${dxy.changePct}%)` : 'unavailable'}
+GLOBAL MARKETS:
+  S&P 500:      ${sp500 ? `${Number(sp500.changePct) >= 0 ? '+' : ''}${sp500.changePct}%` : 'unavailable'}
+  Crude Oil:    ${crude ? `$${crude.latest?.toFixed(1)}  (${Number(crude.changePct) >= 0 ? '+' : ''}${crude.changePct}%)` : 'unavailable'}
+  Dollar Index: ${dxy   ? `${dxy.latest?.toFixed(2)}  (${Number(dxy.changePct) >= 0 ? '+' : ''}${dxy.changePct}%)` : 'unavailable'}
 
 RECENT CANDLESTICK PATTERNS (last 6 sessions):
 ${patterns.map(p => '  ' + p).join('\n')}
@@ -527,18 +570,25 @@ ${patterns.map(p => '  ' + p).join('\n')}
 Respond in this EXACT format with no other text:
 
 ## Outlook
-[2-3 lines: is the trade working, momentum in your favour?]
+[2-3 lines. State whether the trade is currently above/below breakeven. Is momentum helping or hurting?]
 
 ## Profit Target
-[Specific NIFTY level to exit for profit. Expected premium value at that level if possible.]
+[Specific NIFTY level to exit for profit. State expected spread value at that level if possible.]
 
 ## Stop Loss
 [Specific NIFTY level or % loss on premium to trigger exit. Be precise.]
 
 ## Time-based Rules
-[When to exit based on DTE — e.g. "exit by Wed if <50% max profit", theta decay guidance]
+[When to exit based on DTE — e.g. "exit by Wed if <50% max profit". State theta impact correctly: debit trades decay, credit trades gain.]
 
 ## If Market Moves Against You
+[Concrete adjustment or defensive action with specific NIFTY levels]
+
+## Key Levels to Watch
+[2-4 support/resistance levels with brief reasoning]
+
+## Risk Rating
+[One line: Low / Medium / High risk, with reason]`;
 [Concrete adjustment or defensive action with specific levels]
 
 ## Key Levels to Watch
