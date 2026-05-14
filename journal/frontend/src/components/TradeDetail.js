@@ -4,6 +4,121 @@ import axios from 'axios';
 import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
 
+// ── AI Exit Plan panel ────────────────────────────────────────────────────────
+function ExitPlan({ tradeId }) {
+  const [plan,      setPlan]      = useState(null);
+  const [planAt,    setPlanAt]    = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [generating,setGenerating]= useState(false);
+  const [error,     setError]     = useState('');
+
+  useEffect(() => {
+    axios.get(`/api/trades/${tradeId}/exit-plan`)
+      .then(r => { setPlan(r.data.exit_plan); setPlanAt(r.data.exit_plan_at); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [tradeId]);
+
+  const generate = async () => {
+    setGenerating(true); setError('');
+    try {
+      const r = await axios.post(`/api/trades/${tradeId}/exit-plan`);
+      setPlan(r.data.exit_plan);
+      setPlanAt(r.data.exit_plan_at);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to generate exit plan');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Render markdown sections as structured cards
+  function renderPlan(text) {
+    if (!text) return null;
+    const sections = text.split(/^## /m).filter(Boolean);
+    const sectionMeta = {
+      'Outlook':                    { icon: '📊', cls: 'ep-outlook' },
+      'Profit Target':              { icon: '🎯', cls: 'ep-target' },
+      'Stop Loss':                  { icon: '🛑', cls: 'ep-stop' },
+      'Time-based Rules':           { icon: '⏱',  cls: 'ep-time' },
+      'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust' },
+      'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels' },
+      'Risk Rating':                { icon: '⚡', cls: 'ep-risk' },
+    };
+    return (
+      <div className="ep-sections">
+        {sections.map((sec, i) => {
+          const newline = sec.indexOf('\n');
+          const title   = newline === -1 ? sec.trim() : sec.slice(0, newline).trim();
+          const body    = newline === -1 ? '' : sec.slice(newline + 1).trim();
+          const meta    = sectionMeta[title] || { icon: '•', cls: '' };
+          return (
+            <div key={i} className={`ep-section ${meta.cls}`}>
+              <div className="ep-section-title">{meta.icon} {title}</div>
+              <div className="ep-section-body">{body}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (loading) return <div className="loading" style={{ padding: 32 }}>Loading…</div>;
+
+  return (
+    <div className="ep-panel">
+      <div className="ep-header">
+        <div>
+          <div className="ep-title">AI Exit Plan</div>
+          {planAt && (
+            <div className="ep-timestamp">
+              Last generated: {new Date(planAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={generate}
+          disabled={generating}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          {generating ? (
+            <><span className="ep-spinner" /> Analysing…</>
+          ) : plan ? (
+            '↻ Refresh Plan'
+          ) : (
+            '✦ Generate Exit Plan'
+          )}
+        </button>
+      </div>
+
+      {error && <div className="ep-error">{error}</div>}
+
+      {!plan && !generating && (
+        <div className="ep-empty">
+          <div className="ep-empty-icon">✦</div>
+          <div>Click <strong>Generate Exit Plan</strong> to get an AI-assisted exit strategy based on live NIFTY, India VIX, global markets, and candlestick patterns.</div>
+        </div>
+      )}
+
+      {generating && (
+        <div className="ep-generating">
+          <div className="ep-gen-row"><span className="ep-spinner-lg" /> Fetching live market data…</div>
+          <div className="ep-gen-hint">Pulling NIFTY spot, India VIX, S&amp;P 500, crude oil, DXY and recent candle patterns</div>
+        </div>
+      )}
+
+      {plan && !generating && renderPlan(plan)}
+
+      {plan && (
+        <div className="ep-disclaimer">
+          AI analysis uses live market data and stored sessions. Not financial advice — verify before acting.
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LOT_SIZE = 65;
 
 const EMOTIONS = [
@@ -329,9 +444,10 @@ export default function TradeDetail() {
       {/* ── Tabs ────────────────────────────────── */}
       <div className="td-tabs">
         {[
-          { key: 'timeline', label: 'Day-by-Day Timeline' },
-          { key: 'comments', label: `Comment Log (${comments.filter(c => c.comment).length})` },
-          { key: 'summary',  label: 'Trade Summary' },
+          { key: 'timeline',  label: 'Day-by-Day Timeline' },
+          { key: 'comments',  label: `Comment Log (${comments.filter(c => c.comment).length})` },
+          { key: 'summary',   label: 'Trade Summary' },
+          ...(trade.status === 'open' ? [{ key: 'exitplan', label: '✦ AI Exit Plan' }] : []),
         ].map(t => (
           <button
             key={t.key}
@@ -504,6 +620,11 @@ export default function TradeDetail() {
             <button className="btn btn-secondary" onClick={() => navigate('/trades')}>Back to Trades</button>
           </div>
         </div>
+      )}
+
+      {/* ── Tab: AI Exit Plan ───────────────────── */}
+      {tab === 'exitplan' && trade.status === 'open' && (
+        <ExitPlan tradeId={id} />
       )}
     </div>
   );
