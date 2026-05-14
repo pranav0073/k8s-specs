@@ -88,6 +88,7 @@ router.get('/quote', async (req, res) => {
 
 // POST /api/sessions/ai-analysis  — AI-powered market analysis + strategy recommendation
 router.post('/ai-analysis', async (req, res) => {
+  try {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not set.' });
@@ -217,17 +218,16 @@ Respond in EXACTLY this format with no other text. Use specific NIFTY levels and
 ## Levels to Watch
 [3-4 specific NIFTY price levels with brief reasoning for each — support, resistance, breakout triggers.]`;
 
-  try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client    = new Anthropic.default({ apiKey });
-    const message   = await client.messages.create({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-    res.json({ analysis: message.content[0]?.text || '', generatedAt: new Date().toISOString() });
+  const Anthropic = require('@anthropic-ai/sdk');
+  const client    = new (Anthropic.default ?? Anthropic)({ apiKey });
+  const message   = await client.messages.create({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: prompt }],
+  });
+  res.json({ analysis: message.content[0]?.text || '', generatedAt: new Date().toISOString() });
   } catch (err) {
-    res.status(502).json({ error: err.message || 'Claude API call failed' });
+    if (!res.headersSent) res.status(502).json({ error: err.message || 'AI analysis failed' });
   }
 });
 

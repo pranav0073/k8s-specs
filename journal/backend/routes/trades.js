@@ -423,6 +423,7 @@ function detectPatterns(sessions) {
 
 // POST /api/trades/:id/exit-plan  — generate (or refresh) AI exit plan
 router.post('/:id/exit-plan', async (req, res) => {
+  try {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not set. Add it to your environment and restart the backend.' });
@@ -624,20 +625,19 @@ Respond in this EXACT format with no other text:
 ## Risk Rating
 [One line: Low / Medium / High risk, with reason]`;
 
-  try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client    = new Anthropic.default({ apiKey });
-    const message   = await client.messages.create({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-    const plan = message.content[0]?.text || '';
-    const now  = new Date().toISOString();
-    db.prepare('UPDATE trades SET exit_plan = ?, exit_plan_at = ? WHERE id = ?').run(plan, now, trade.id);
-    res.json({ exit_plan: plan, exit_plan_at: now });
+  const Anthropic = require('@anthropic-ai/sdk');
+  const client    = new (Anthropic.default ?? Anthropic)({ apiKey });
+  const message   = await client.messages.create({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: prompt }],
+  });
+  const plan = message.content[0]?.text || '';
+  const now  = new Date().toISOString();
+  db.prepare('UPDATE trades SET exit_plan = ?, exit_plan_at = ? WHERE id = ?').run(plan, now, trade.id);
+  res.json({ exit_plan: plan, exit_plan_at: now });
   } catch (err) {
-    res.status(502).json({ error: err.message || 'Claude API call failed' });
+    if (!res.headersSent) res.status(502).json({ error: err.message || 'Claude API call failed' });
   }
 });
 
