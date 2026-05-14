@@ -246,9 +246,106 @@ router.get('/quotes', async (req, res) => {
       return { ...l, symbol: sym, quote: q ? { ...q, ...greeks } : null };
     });
 
-    res.json({ quotes, legQuotes, niftySpot });
+    // Persist each symbol's data to kite_quotes
+    const upsert = db.prepare(`INSERT OR REPLACE INTO kite_quotes
+      (symbol, ltp, change_val, iv, delta, theta, gamma, vega, oi, nifty_spot, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const nowIso = new Date().toISOString();
+    for (const lq of legQuotes) {
+      if (lq.symbol && lq.quote) {
+        const q = lq.quote;
+        upsert.run(lq.symbol, q.ltp, q.change, q.iv, q.delta, q.theta, q.gamma, q.vega, q.oi, niftySpot, nowIso);
+      }
+    }
+
+    res.json({ quotes, legQuotes, niftySpot, updatedAt: nowIso });
   } catch (err) {
     res.status(502).json({ error: err.message });
+  }
+});
+
+// GET /api/kite/stored-quotes?trade_id=N — return cached quotes from DB
+router.get('/stored-quotes', (req, res) => {
+  try {
+    const { trade_id } = req.query;
+    if (!trade_id) return res.status(400).json({ error: 'trade_id required' });
+
+    const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(trade_id);
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+
+    const legs = JSON.parse(trade.legs || '[]');
+    const symbols = legs.map(l => buildSymbol(l));
+
+    let updatedAt = null;
+    let niftySpot = null;
+
+    const legQuotes = legs.map((l, i) => {
+      const sym = symbols[i];
+      if (!sym) return { ...l, symbol: null, quote: null, pnl: null };
+
+      const row = db.prepare('SELECT * FROM kite_quotes WHERE symbol = ?').get(sym);
+      if (!row) return { ...l, symbol: sym, quote: null, pnl: null };
+
+      if (!updatedAt) updatedAt = row.updated_at;
+      if (!niftySpot) niftySpot = row.nifty_spot;
+
+      const quote = {
+        ltp:    row.ltp,
+        change: row.change_val,
+        iv:     row.iv,
+        delta:  row.delta,
+        theta:  row.theta,
+        gamma:  row.gamma,
+        vega:   row.vega,
+        oi:     row.oi,
+      };
+
+      const sign = l.side === 'B' ? 1 : -1;
+      const pnl  = sign * (row.ltp - parseFloat(l.entry_price)) * parseFloat(l.lots) * 65;
+
+      return { ...l, symbol: sym, quote, pnl };
+    });
+
+    res.json({ legQuotes, niftySpot, updatedAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/kite/open-pnl — return P&L summary for all open trades that have stored quotes
+router.get('/open-pnl', (req, res) => {
+  try {
+    const openTrades = db.prepare("SELECT * FROM trades WHERE status = 'open'").all();
+    const result = {};
+
+    for (const trade of openTrades) {
+      const legs = JSON.parse(trade.legs || '[]');
+      let totalPnl  = 0;
+      let updatedAt = null;
+      let hasData   = false;
+
+      for (const l of legs) {
+        const sym = buildSymbol(l);
+        if (!sym) continue;
+
+        const row = db.prepare('SELECT * FROM kite_quotes WHERE symbol = ?').get(sym);
+        if (!row) continue;
+
+        hasData = true;
+        if (!updatedAt) updatedAt = row.updated_at;
+
+        const sign = l.side === 'B' ? 1 : -1;
+        totalPnl += sign * (row.ltp - parseFloat(l.entry_price)) * parseFloat(l.lots) * 65;
+      }
+
+      if (hasData) {
+        result[trade.id] = { pnl: totalPnl, updatedAt };
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

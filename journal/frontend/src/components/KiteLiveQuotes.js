@@ -1,9 +1,24 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
+const LOT_SIZE = 65;
+
+function formatUpdatedAt(isoStr) {
+  if (!isoStr) return null;
+  const d   = new Date(isoStr);
+  const now = new Date();
+  const diffMs  = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1)   return 'just now';
+  if (diffMin < 60)  return `${diffMin} min ago`;
+  // > 1 hour: show exact time
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function KiteLiveQuotes({ tradeId }) {
   const [status,    setStatus]    = useState(null);  // {configured, authenticated, token_date, api_key_hint}
   const [quotes,    setQuotes]    = useState(null);  // legQuotes array
+  const [updatedAt, setUpdatedAt] = useState(null);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
   const [showSetup, setShowSetup] = useState(false);
@@ -15,19 +30,39 @@ export default function KiteLiveQuotes({ tradeId }) {
     axios.get('/api/kite/status').then(r => setStatus(r.data)).catch(() => {});
   }, []);
 
+  // On mount: load cached quotes first
   useEffect(() => {
     fetchStatus();
     // Listen for auth callback from popup
     const handler = (e) => { if (e.data === 'kite_auth_success') { fetchStatus(); } };
     window.addEventListener('message', handler);
+
+    // Load cached quotes
+    axios.get(`/api/kite/stored-quotes?trade_id=${tradeId}`)
+      .then(r => {
+        if (r.data.legQuotes && r.data.legQuotes.some(lq => lq.quote)) {
+          setQuotes(r.data.legQuotes);
+          setUpdatedAt(r.data.updatedAt);
+        }
+      })
+      .catch(() => {}); // silently ignore if no cached data
+
     return () => window.removeEventListener('message', handler);
-  }, [fetchStatus]);
+  }, [fetchStatus, tradeId]);
 
   const fetchQuotes = async () => {
     setLoading(true); setError('');
     try {
       const r = await axios.get(`/api/kite/quotes?trade_id=${tradeId}`);
-      setQuotes(r.data.legQuotes);
+      // Compute client-side pnl for live data
+      const legsWithPnl = r.data.legQuotes.map(leg => {
+        if (!leg.quote) return leg;
+        const sign = leg.side === 'B' ? 1 : -1;
+        const pnl  = sign * (leg.quote.ltp - parseFloat(leg.entry_price)) * parseFloat(leg.lots) * LOT_SIZE;
+        return { ...leg, pnl };
+      });
+      setQuotes(legsWithPnl);
+      setUpdatedAt(r.data.updatedAt);
     } catch (e) {
       setError(e.response?.data?.error || 'Failed to fetch quotes');
     } finally {
@@ -61,6 +96,10 @@ export default function KiteLiveQuotes({ tradeId }) {
   const fmt = v => v != null ? Number(v).toFixed(v < 1 && v > -1 ? 4 : 2) : '—';
   const fmtRs = v => v != null ? `₹${Number(v).toFixed(2)}` : '—';
 
+  const netPnl = quotes
+    ? quotes.reduce((sum, leg) => sum + (leg.pnl ?? 0), 0)
+    : null;
+
   return (
     <div className="form-card">
       {/* Header */}
@@ -74,6 +113,11 @@ export default function KiteLiveQuotes({ tradeId }) {
               color:      status.authenticated ? '#15803d'  : '#dc2626',
             }}>
               {status.authenticated ? `Connected · ${status.token_date}` : 'Not connected'}
+            </span>
+          )}
+          {updatedAt && (
+            <span style={{ fontSize: 11, color: '#6b7280' }}>
+              Last refreshed: {formatUpdatedAt(updatedAt)}
             </span>
           )}
         </div>
@@ -129,7 +173,7 @@ export default function KiteLiveQuotes({ tradeId }) {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
               <tr style={{ borderBottom:'2px solid #e5e5e5' }}>
-                {['Leg','Symbol','LTP','Chg','IV %','Delta','Theta/d','Gamma','Vega','OI'].map(h => (
+                {['Leg','Symbol','LTP','Chg','IV %','Delta','Theta/d','Gamma','Vega','OI','P&L'].map(h => (
                   <th key={h} style={{ padding:'6px 8px', textAlign:'right', fontWeight:600, color:'#6b7280', whiteSpace:'nowrap' }}
                     {...(h === 'Leg' ? { style:{ padding:'6px 8px', textAlign:'left', fontWeight:600, color:'#6b7280' } } : {})}>
                     {h}
@@ -141,6 +185,7 @@ export default function KiteLiveQuotes({ tradeId }) {
               {quotes.map((leg, i) => {
                 const q = leg.quote;
                 const isBuy = leg.side === 'B';
+                const pnl   = leg.pnl ?? null;
                 return (
                   <tr key={i} style={{ borderBottom:'1px solid #f3f4f6' }}>
                     <td style={{ padding:'8px 8px', fontWeight:600, color: isBuy ? '#2563eb' : '#dc2626' }}>
@@ -164,9 +209,23 @@ export default function KiteLiveQuotes({ tradeId }) {
                     <td style={{ padding:'8px 8px', textAlign:'right', color:'#6b7280' }}>
                       {q?.oi != null ? Number(q.oi).toLocaleString('en-IN') : '—'}
                     </td>
+                    <td style={{ padding:'8px 8px', textAlign:'right', fontWeight:600,
+                      color: pnl == null ? '#6b7280' : pnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                      {pnl == null ? '—' : `${pnl >= 0 ? '+' : ''}₹${Math.round(pnl).toLocaleString('en-IN')}`}
+                    </td>
                   </tr>
                 );
               })}
+              {/* Net P&L row */}
+              <tr style={{ borderTop:'2px solid #e5e5e5', background:'#f9fafb' }}>
+                <td colSpan={10} style={{ padding:'8px 8px', textAlign:'right', fontWeight:700, color:'#374151' }}>
+                  Net P&L
+                </td>
+                <td style={{ padding:'8px 8px', textAlign:'right', fontWeight:700,
+                  color: netPnl == null ? '#6b7280' : netPnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                  {netPnl == null ? '—' : `${netPnl >= 0 ? '+' : ''}₹${Math.round(netPnl).toLocaleString('en-IN')}`}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

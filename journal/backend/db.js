@@ -101,4 +101,20 @@ db.exec(`
 const hasKiteRow = db.prepare('SELECT id FROM kite_config WHERE id = 1').get();
 if (!hasKiteRow) db.prepare('INSERT INTO kite_config (id) VALUES (1)').run();
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kite_quotes (
+    symbol     TEXT PRIMARY KEY,
+    ltp        REAL,
+    change_val REAL,
+    iv         REAL,
+    delta      REAL,
+    theta      REAL,
+    gamma      REAL,
+    vega       REAL,
+    oi         REAL,
+    nifty_spot REAL,
+    updated_at TEXT
+  )
+`);
+
 module.exports = db;
