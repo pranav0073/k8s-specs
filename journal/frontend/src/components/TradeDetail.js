@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ImageUpload from './ImageUpload';
+import AutoTextarea from './AutoTextarea';
 
 const LOT_SIZE = 65;
 
@@ -157,7 +158,7 @@ function TimelineRow({ date, marker, session, comment: initComment, onSave, trad
 
           {/* Notes: textarea fills to last emotion, save+upload share one line */}
           <div className="tl-notes-area">
-            <textarea
+            <AutoTextarea
               className="tl-comment-input"
               placeholder="Notes for this day…"
               value={comment}

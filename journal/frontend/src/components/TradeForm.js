@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import AutoTextarea from './AutoTextarea';
 
 const LOT_SIZE = 65;
 
@@ -282,10 +283,9 @@ export default function TradeForm() {
           <div className="form-row">
             <div className="form-group full-width">
               <label>Notes</label>
-              <textarea
+              <AutoTextarea
                 value={form.notes}
                 onChange={set('notes')}
-                rows={3}
                 placeholder="Trade rationale, market view, observations…"
               />
             </div>

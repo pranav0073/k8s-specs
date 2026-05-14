@@ -386,7 +386,7 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
 }
-textarea { resize: vertical; }
+textarea { resize: none; overflow: hidden; min-height: 42px; }
 
 /* ── Legs table ───────────────────────────── */
 .legs-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
