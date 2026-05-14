@@ -19,6 +19,8 @@ app.use(express.json({ limit: '50mb' })); // base64 image payloads
 app.use('/api/trades',    tradesRouter);
 app.use('/api/sessions',  sessionsRouter);
 app.use('/api/charges',   chargesRouter);
+const kiteRouter = require('./routes/kite');
+app.use('/api/kite', kiteRouter);
 app.use('/uploads',       express.static(UPLOADS_DIR));
 app.get('/api/health',    (req, res) => res.json({ status: 'ok' }));
 

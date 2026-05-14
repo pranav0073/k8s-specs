@@ -4,6 +4,7 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import ImageUpload from './ImageUpload';
 import AutoTextarea from './AutoTextarea';
+import KiteLiveQuotes from './KiteLiveQuotes';
 
 // ── AI Exit Plan panel ────────────────────────────────────────────────────────
 
@@ -452,7 +453,10 @@ export default function TradeDetail() {
           { key: 'timeline',  label: 'Day-by-Day Timeline' },
           { key: 'comments',  label: `Comment Log (${comments.filter(c => c.comment).length})` },
           { key: 'summary',   label: 'Trade Summary' },
-          ...(trade.status === 'open' ? [{ key: 'exitplan', label: '✦ AI Exit Plan' }] : []),
+          ...(trade.status === 'open' ? [
+            { key: 'exitplan',    label: '✦ AI Exit Plan' },
+            { key: 'livequotes',  label: '⚡ Live Quotes' },
+          ] : []),
         ].map(t => (
           <button
             key={t.key}
@@ -630,6 +634,11 @@ export default function TradeDetail() {
       {/* ── Tab: AI Exit Plan ───────────────────── */}
       {tab === 'exitplan' && trade.status === 'open' && (
         <ExitPlan tradeId={id} />
+      )}
+
+      {/* ── Tab: Live Quotes ────────────────────── */}
+      {tab === 'livequotes' && trade.status === 'open' && (
+        <KiteLiveQuotes tradeId={id} />
       )}
     </div>
   );

@@ -89,4 +89,16 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kite_config (
+    id           INTEGER PRIMARY KEY,
+    api_key      TEXT,
+    api_secret   TEXT,
+    access_token TEXT,
+    token_date   TEXT
+  )
+`);
+const hasKiteRow = db.prepare('SELECT id FROM kite_config WHERE id = 1').get();
+if (!hasKiteRow) db.prepare('INSERT INTO kite_config (id) VALUES (1)').run();
+
 module.exports = db;
