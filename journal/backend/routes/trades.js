@@ -383,14 +383,14 @@ router.delete('/:id/comments/:date/images/:filename', (req, res) => {
 
 const MONTH_MAP = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
 
-function lastThursdayOfMonth(year, mon) {
+function lastTuesdayOfMonth(year, mon) {
   const last = new Date(year, mon + 1, 0);
-  const sub  = (last.getDay() - 4 + 7) % 7; // days back to Thursday
+  const sub  = (last.getDay() - 2 + 7) % 7; // days back to Tuesday (2)
   return new Date(year, mon, last.getDate() - sub);
 }
 
 // Handles all NSE expiry formats stored by the app:
-//   "May '26"   → monthly: last Thursday of May 2026
+//   "May '26"   → monthly: last Tuesday of May 2026
 //   "19 May"    → weekly:  nearest future May 19
 //   "29MAY2026" → standard NSE string
 //   ISO / other → native Date parse
@@ -401,7 +401,7 @@ function parseExpiry(str) {
   const monthly = str.match(/^([A-Za-z]{3})\s*'(\d{2})$/);
   if (monthly) {
     const mon = MONTH_MAP[monthly[1].toLowerCase()];
-    if (mon !== undefined) return lastThursdayOfMonth(2000 + parseInt(monthly[2], 10), mon);
+    if (mon !== undefined) return lastTuesdayOfMonth(2000 + parseInt(monthly[2], 10), mon);
   }
 
   // "19 May"
