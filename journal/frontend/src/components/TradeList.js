@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import ImportModal from './ImportModal';
+import KiteLiveQuotes from './KiteLiveQuotes';
+import PayoffGraph from './PayoffGraph';
 
 const LOT_SIZE = 65;
 const EMPTY_FILTERS = { instrument: '', strategy: '', status: 'open', from: '', to: '' };
@@ -516,6 +518,8 @@ export default function TradeList() {
                           onDelete={() => handleDelete(t.id)}
                           onCancel={() => setExpandedId(null)}
                         />
+                        {t.status === 'open' && <KiteLiveQuotes tradeId={t.id} />}
+                        <PayoffGraph trade={t} />
                       </td>
                     </tr>
                   )}
