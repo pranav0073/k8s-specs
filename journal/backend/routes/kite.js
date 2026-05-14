@@ -42,7 +42,12 @@ function buildSymbol(leg) {
     const now = new Date();
     let d = new Date(now.getFullYear(), mon, day);
     if (d < now) d = new Date(now.getFullYear() + 1, mon, day);
-    const yy = String(d.getFullYear()).slice(2);
+    const year = d.getFullYear();
+    const yy   = String(year).slice(2);
+    // If this date is the last Tuesday of the month → monthly NIFTY contract
+    if (lastTuesdayOfMonth(year, mon).getDate() === day) {
+      return `NIFTY${yy}${MONTH_3[mon]}${strike}${type}`;
+    }
     const mc = MONTH_CODE[mon];
     const dd = String(day).padStart(2, '0');
     return `NIFTY${yy}${mc}${dd}${strike}${type}`;
