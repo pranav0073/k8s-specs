@@ -421,6 +421,46 @@ function detectPatterns(sessions) {
   return out.length ? out : ['No notable patterns in recent sessions'];
 }
 
+// ── Black-Scholes Greeks ──────────────────────────────────────────────────────
+
+function normCDF(x) {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const t = 1 / (1 + p * Math.abs(x));
+  const y = 1 - ((((a5*t + a4)*t + a3)*t + a2)*t + a1)*t * Math.exp(-x*x);
+  return 0.5 * (1 + sign * y);
+}
+function normPDF(x) { return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI); }
+
+function bsmGreeks(S, K, T, sigma, type, r = 0.065) {
+  const intrinsic = type === 'CE' ? Math.max(0, S - K) : Math.max(0, K - S);
+  if (T <= 0 || sigma <= 0) {
+    return { price: intrinsic, intrinsic, timeValue: 0, delta: type === 'CE' ? (S >= K ? 1 : 0) : (S <= K ? -1 : 0), gamma: 0, theta: 0, vega: 0 };
+  }
+  const sqrtT = Math.sqrt(T);
+  const d1    = (Math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * sqrtT);
+  const d2    = d1 - sigma * sqrtT;
+  const eRt   = Math.exp(-r * T);
+  const Nd1   = normCDF(d1), Nd2 = normCDF(d2);
+  const pd1   = normPDF(d1);
+
+  let price, delta, theta;
+  if (type === 'CE') {
+    price = S * Nd1 - K * eRt * Nd2;
+    delta = Nd1;
+    theta = (-(S * pd1 * sigma) / (2 * sqrtT) - r * K * eRt * Nd2) / 365;
+  } else {
+    price = K * eRt * normCDF(-d2) - S * normCDF(-d1);
+    delta = Nd1 - 1;
+    theta = (-(S * pd1 * sigma) / (2 * sqrtT) + r * K * eRt * normCDF(-d2)) / 365;
+  }
+  const gamma    = pd1 / (S * sigma * sqrtT);
+  const vega     = S * pd1 * sqrtT * 0.01; // per 1% IV move
+  const timeValue = Math.max(0, price - intrinsic);
+  return { price: Math.max(0, price), intrinsic, timeValue, delta, gamma, theta, vega };
+}
+
 // POST /api/trades/:id/exit-plan  — generate (or refresh) AI exit plan
 router.post('/:id/exit-plan', async (req, res) => {
   try {
@@ -553,6 +593,32 @@ router.post('/:id/exit-plan', async (req, res) => {
     }
   }
 
+  // ── Greeks & option value per leg (Black-Scholes) ──────────────────────────
+  const iv     = vix?.latest ? vix.latest / 100 : (hv10 ? parseFloat(hv10) / 100 : 0.15);
+  const T_bsm  = dte != null && dte > 0 ? dte / 365 : null;
+
+  const legGreeks = legs.map(l => {
+    if (!spot || !l.strike || !l.type || T_bsm === null) return null;
+    const g    = bsmGreeks(spot, l.strike, T_bsm, iv, l.type);
+    const sign = l.side === 'B' ? 1 : -1;
+    const n    = (l.lots || 1) * LOT_SIZE;
+    return { ...g, sign, n, strike: l.strike, type: l.type, side: l.side, lots: l.lots };
+  });
+
+  const validGreeks = legGreeks.filter(Boolean);
+  const netDelta    = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.delta * g.n, 0) : null;
+  const netTheta    = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.theta * g.n, 0) : null;
+  const netGamma    = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.gamma * g.n, 0) : null;
+  const netVega     = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.vega  * g.n, 0) : null;
+  const netIntrinsic = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.intrinsic * g.n, 0) : null;
+  const netTheoValue = validGreeks.length ? validGreeks.reduce((s, g) => s + g.sign * g.price * g.n, 0) : null;
+
+  const legGreeksText = validGreeks.map(g =>
+    `    ${g.side === 'B' ? 'BUY' : 'SELL'} ${g.strike} ${g.type}: ` +
+    `Δ ${g.delta.toFixed(3)}  Θ ${g.theta.toFixed(2)}/day  Γ ${g.gamma.toFixed(4)}  V ${g.vega.toFixed(2)}/1%IV` +
+    `  intrinsic ₹${g.intrinsic.toFixed(1)}  time ₹${g.timeValue.toFixed(1)}`
+  ).join('\n');
+
   const prompt = `You are an expert NIFTY options trader. Provide a precise, actionable exit plan for the trade below.
 Use ONLY the pre-computed figures provided — do NOT recalculate or second-guess them.
 CRITICAL: Use ONLY the expiry date stated in the legs below. Never guess, infer, or override it.
@@ -586,6 +652,17 @@ PRE-COMPUTED TRADE MECHANICS — use ONLY these figures, do NOT recalculate:
   Spot vs breakeven:    ${spotVsBE != null ? (Number(spotVsBE) >= 0 ? '+' : '') + spotVsBE + ' pts (' + (Number(spotVsBE) >= 0 ? 'ABOVE — trade profitable at expiry' : 'BELOW — trade losing at expiry') + ')' : '—'}
   NIFTY move since entry: ${niftyMovePct != null ? (Number(niftyMovePct) >= 0 ? '+' : '') + niftyMovePct + '%' : '—'}
 
+GREEKS & OPTION VALUE (Black-Scholes, IV = ${(iv * 100).toFixed(1)}% = ${vix?.latest ? 'live VIX' : 'HV10 fallback'}):
+${legGreeksText || '  (insufficient data for Greeks — DTE or spot unavailable)'}
+  ── NET POSITION ──
+  Net Delta:     ${netDelta != null ? netDelta.toFixed(2) + ' (₹' + (netDelta).toFixed(0) + ' P&L per 1 pt NIFTY move)' : '—'}
+  Net Theta:     ${netTheta != null ? '₹' + netTheta.toFixed(2) + '/day (' + (netTheta > 0 ? 'earning' : 'losing') + ' time value daily)' : '—'}
+  Net Gamma:     ${netGamma != null ? netGamma.toFixed(4) : '—'}
+  Net Vega:      ${netVega  != null ? '₹' + netVega.toFixed(2) + ' per 1% IV move' : '—'}
+  Intrinsic value (spread): ${netIntrinsic != null ? '₹' + netIntrinsic.toFixed(0) : '—'}
+  Theoretical value (spread): ${netTheoValue != null ? '₹' + netTheoValue.toFixed(0) : '—'}
+  Time value (spread): ${netIntrinsic != null && netTheoValue != null ? '₹' + (netTheoValue - netIntrinsic).toFixed(0) : '—'}
+
 VOLATILITY & MOMENTUM:
   India VIX:  ${vix?.latest?.toFixed(2) ?? 'unavailable'}  (${vix?.changePct != null ? (Number(vix.changePct) >= 0 ? '+' : '') + vix.changePct + '% today' : ''})
   ${vix?.latest && hv10 ? `VIX/HV ratio: ${(vix.latest / parseFloat(hv10)).toFixed(2)}× — options are ${vix.latest / parseFloat(hv10) > 1.2 ? 'OVERPRICED vs history (sell bias)' : vix.latest / parseFloat(hv10) < 0.8 ? 'CHEAP vs history (buy bias)' : 'fairly priced'}` : ''}
@@ -605,25 +682,25 @@ ${patterns.map(p => '  ' + p).join('\n')}
 Respond in this EXACT format with no other text:
 
 ## Outlook
-[2-3 lines. State whether the trade is currently above/below breakeven. Is momentum helping or hurting?]
+[2-3 lines. State whether the trade is currently above/below breakeven, net delta direction, and whether momentum is helping or hurting.]
 
 ## Profit Target
-[Specific NIFTY level to exit for profit. State expected spread value at that level if possible.]
+[Specific NIFTY level to exit for profit. State the spread's theoretical value at that level and % of max profit captured.]
 
 ## Stop Loss
-[Specific NIFTY level or % loss on premium to trigger exit. Be precise.]
+[Specific NIFTY level or % loss on premium. Reference the net delta to estimate how many NIFTY points correspond to the stop-loss amount.]
 
 ## Time-based Rules
-[Use the EXACT expiry date and DTE from the pre-computed facts above — never guess the expiry. Give specific calendar dates for exit checkpoints based on the actual DTE remaining. State theta impact correctly: debit trades decay, credit trades gain.]
+[Use the EXACT expiry date and DTE from the pre-computed facts above — never guess the expiry. Give specific calendar dates. State the net theta impact in rupees per day clearly: "this position loses/earns ₹X/day from time decay". Highlight theta acceleration in final week.]
 
 ## If Market Moves Against You
-[Concrete adjustment or defensive action with specific NIFTY levels]
+[Concrete adjustment with specific NIFTY levels. Reference vega: if IV spikes/drops, how does that affect the spread value?]
 
 ## Key Levels to Watch
 [2-4 support/resistance levels with brief reasoning]
 
 ## Risk Rating
-[One line: Low / Medium / High risk, with reason]`;
+[One line: Low / Medium / High risk, with reason referencing Greeks — e.g. delta exposure, theta bleed rate, vega risk]`;
 
   const Anthropic = require('@anthropic-ai/sdk');
   const client    = new (Anthropic.default ?? Anthropic)({ apiKey });
