@@ -106,8 +106,8 @@ router.get('/stats', (req, res) => {
     .map(([strategy, pnl]) => ({ strategy, pnl: Math.round(pnl * 100) / 100 }))
     .sort((a, b) => b.pnl - a.pnl);
 
-  // ── Discipline metrics ──────────────────────────────────────────────────
-  const grossProfit = winners.reduce((s, t) => s + t.pnl, 0);
+  // ── Discipline metrics ─────────────────────────────────────────────────────────
+const grossProfit = winners.reduce((s, t) => s + t.pnl, 0);
   const grossLoss   = Math.abs(losers.reduce((s, t) => s + t.pnl, 0));
   const profitFactor = grossLoss > 0 ? Math.round((grossProfit / grossLoss) * 100) / 100 : null;
   const expectancy   = total > 0
@@ -301,7 +301,7 @@ router.delete('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-// ── Trade Comments ────────────────────────────────────────────────────────────
+// ── Trade Comments ──────────────────────────────────────────────────────────────
 
 function parseComment(row) {
   return { ...row, images: JSON.parse(row.images || '[]') };
@@ -531,11 +531,30 @@ router.post('/:id/exit-plan', async (req, res) => {
   // Build prompt
   const today = new Date().toISOString().split('T')[0];
   const legsText = legs.map(l =>
-    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots} lot(s) ${l.strike} ${l.type} ${l.expiry || ''} @ ₹${l.entry_price}`
+    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots} lot(s) ${l.strike} ${l.type} expiry:${l.expiry || 'unknown'} @ ₹${l.entry_price}`
   ).join('\n');
+
+  // Extract expiry and compute DTE explicitly so Claude never guesses
+  const expiries = legs.map(l => l.expiry).filter(Boolean);
+  const expiryStr = expiries[0] || null;
+  let dte = null;
+  if (expiryStr) {
+    // Handle formats: "2026-05-29", "29-May-2026", "29MAY2026", "29 May 2026"
+    let expiryDate = new Date(expiryStr);
+    if (isNaN(expiryDate)) {
+      // Try parsing "29MAY2026" → "29 May 2026"
+      const nse = expiryStr.replace(/^(\d{2})([A-Z]{3})(\d{4})$/, '$1 $2 $3');
+      expiryDate = new Date(nse);
+    }
+    if (!isNaN(expiryDate)) {
+      const todayMs = new Date(today).getTime();
+      dte = Math.round((expiryDate - todayMs) / 86400000);
+    }
+  }
 
   const prompt = `You are an expert NIFTY options trader. Provide a precise, actionable exit plan for the trade below.
 Use ONLY the pre-computed figures provided — do NOT recalculate or second-guess them.
+CRITICAL: Use ONLY the expiry date stated in the legs below. Never guess, infer, or override it.
 
 TODAY: ${today}
 
@@ -550,6 +569,8 @@ TRADE:
 ${legsText}
 
 PRE-COMPUTED TRADE MECHANICS — use ONLY these figures, do NOT recalculate:
+  Expiry date:   ${expiryStr ?? 'not specified in legs'}
+  DTE (days to expiry from today): ${dte != null ? dte : 'unknown — use the expiry date from the legs above'}
   Lot size:      ${LOT_SIZE} units per lot
   Long strike:   ${longStrike ?? '—'}  (${legType === 'CE' ? 'Call' : 'Put'})
   Short strike:  ${shortStrike ?? '—'}
@@ -592,7 +613,7 @@ Respond in this EXACT format with no other text:
 [Specific NIFTY level or % loss on premium to trigger exit. Be precise.]
 
 ## Time-based Rules
-[When to exit based on DTE — e.g. "exit by Wed if <50% max profit". State theta impact correctly: debit trades decay, credit trades gain.]
+[Use the EXACT expiry date and DTE from the pre-computed facts above — never guess the expiry. Give specific calendar dates for exit checkpoints based on the actual DTE remaining. State theta impact correctly: debit trades decay, credit trades gain.]
 
 ## If Market Moves Against You
 [Concrete adjustment or defensive action with specific NIFTY levels]
