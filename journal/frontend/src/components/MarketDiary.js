@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import ImageUpload from './ImageUpload';
+import AutoTextarea from './AutoTextarea';
 
 function localDateStr(date = new Date()) {
   const y = date.getFullYear();
@@ -223,8 +224,7 @@ export default function MarketDiary() {
               </div>
               <div className="form-group" style={{ marginTop: 12 }}>
                 <label>Session Notes</label>
-                <textarea
-                  rows={2}
+                <AutoTextarea
                   value={form.notes}
                   onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="Market observations, news, key NIFTY levels, VIX…"
