@@ -379,4 +379,196 @@ router.delete('/:id/comments/:date/images/:filename', (req, res) => {
   res.json({ success: true });
 });
 
+// ── AI Exit Plan ──────────────────────────────────────────────────────────────
+
+async function fetchYahoo(symbol, range = '5d') {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+  const r   = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error(`Yahoo ${symbol} → ${r.status}`);
+  const j      = await r.json();
+  const result = j?.chart?.result?.[0];
+  if (!result) throw new Error(`No data for ${symbol}`);
+  const closes = result.indicators.quote[0].close.filter(Boolean);
+  const latest = closes.at(-1);
+  const prev   = closes.at(-2);
+  return { latest, prev, changePct: prev ? ((latest - prev) / prev * 100).toFixed(2) : null };
+}
+
+function detectPatterns(sessions) {
+  const out = [];
+  const s = [...sessions].reverse(); // oldest → newest
+  for (let i = 0; i < s.length; i++) {
+    const { date, open: o, high: h, low: l, close: c } = s[i];
+    if (o == null || h == null || l == null || c == null) continue;
+    const body = Math.abs(c - o);
+    const range = h - l || 0.001;
+    const upper = h - Math.max(o, c);
+    const lower = Math.min(o, c) - l;
+    const bull   = c > o;
+    if (body / range < 0.1)                               out.push(`${date}: Doji (indecision)`);
+    else if (lower > 2 * body && upper < body * 0.3)      out.push(`${date}: ${bull ? 'Hammer (bullish reversal)' : 'Hanging Man (bearish reversal)'}`);
+    else if (upper > 2 * body && lower < body * 0.3)      out.push(`${date}: ${bull ? 'Inverted Hammer' : 'Shooting Star (bearish reversal)'}`);
+    else if (body / range > 0.75)                          out.push(`${date}: ${bull ? 'Bullish' : 'Bearish'} Marubozu (strong momentum)`);
+    if (i > 0) {
+      const p = s[i - 1];
+      if (p.open != null && p.close != null) {
+        const pBull = p.close > p.open;
+        if (!bull && pBull && o >= p.close && c <= p.open) out.push(`${date}: Bearish Engulfing`);
+        if ( bull && !pBull && o <= p.close && c >= p.open) out.push(`${date}: Bullish Engulfing`);
+      }
+    }
+  }
+  return out.length ? out : ['No notable patterns in recent sessions'];
+}
+
+// POST /api/trades/:id/exit-plan  — generate (or refresh) AI exit plan
+router.post('/:id/exit-plan', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not set. Add it to your environment and restart the backend.' });
+  }
+
+  const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
+  if (!trade) return res.status(404).json({ error: 'Trade not found' });
+
+  const legs = JSON.parse(trade.legs || '[]');
+
+  // Fetch all live market data in parallel; degrade gracefully on failure
+  const [niftyR, vixR, sp500R, crudeR, dxyR] = await Promise.allSettled([
+    fetchYahoo('^NSEI',      '10d'),
+    fetchYahoo('^INDIAVIX',  '5d'),
+    fetchYahoo('^GSPC',      '5d'),
+    fetchYahoo('CL=F',       '5d'),
+    fetchYahoo('DX-Y.NYB',   '5d'),
+  ]);
+
+  const nifty = niftyR.status === 'fulfilled' ? niftyR.value : null;
+  const vix   = vixR.status   === 'fulfilled' ? vixR.value   : null;
+  const sp500 = sp500R.status === 'fulfilled' ? sp500R.value : null;
+  const crude = crudeR.status === 'fulfilled' ? crudeR.value : null;
+  const dxy   = dxyR.status   === 'fulfilled' ? dxyR.value   : null;
+
+  // Compute HV and ATR from stored sessions
+  const sessions = db.prepare(
+    'SELECT date, open, high, low, close FROM market_sessions WHERE close IS NOT NULL ORDER BY date ASC LIMIT 30'
+  ).all();
+  const closes  = sessions.map(s => s.close);
+  const logRets = closes.slice(1).map((c, i) => Math.log(c / closes[i]));
+  function hv(n) {
+    const r = logRets.slice(-n);
+    if (r.length < 2) return null;
+    const mean = r.reduce((a, b) => a + b, 0) / r.length;
+    const v    = r.reduce((a, b) => a + (b - mean) ** 2, 0) / (r.length - 1);
+    return (Math.sqrt(v * 252) * 100).toFixed(1);
+  }
+  const atrRows = sessions.slice(-14).filter(s => s.high && s.low);
+  const atr     = atrRows.length ? Math.round(atrRows.reduce((s, r) => s + r.high - r.low, 0) / atrRows.length) : null;
+  const hv10    = hv(10);
+  const hv20    = hv(20);
+
+  // Trend
+  const last6  = closes.slice(-6);
+  const trendPct = last6.length >= 2
+    ? (((last6.at(-1) - last6[0]) / last6[0]) * 100).toFixed(2)
+    : null;
+
+  // Weekly expected move
+  const volForMove = vix?.latest ?? (hv10 ? parseFloat(hv10) : null);
+  const weeklyMove = volForMove && nifty?.latest
+    ? Math.round(nifty.latest * (volForMove / 100) * Math.sqrt(5 / 252))
+    : null;
+
+  // Candlestick patterns
+  const recentSessions = sessions.slice(-6);
+  const patterns = detectPatterns(recentSessions);
+
+  // Build prompt
+  const today = new Date().toISOString().split('T')[0];
+  const legsText = legs.map(l =>
+    `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots}L ${l.strike}${l.type} ${l.expiry || ''} @ ₹${l.entry_price}`
+  ).join('\n');
+
+  const niftyAtEntry = sessions.find(s => s.date === trade.date)?.close;
+  const niftyMove = niftyAtEntry && nifty?.latest
+    ? ((nifty.latest - niftyAtEntry) / niftyAtEntry * 100).toFixed(2)
+    : null;
+
+  const prompt = `You are an expert NIFTY options trader. Provide a precise, actionable exit plan for the trade below.
+
+TODAY: ${today}
+
+TRADE:
+  Instrument: ${trade.instrument}
+  Strategy:   ${trade.strategy || 'Options Trade'}
+  Entry Date: ${trade.date}
+  Status:     ${trade.status}
+  Legs:
+${legsText}
+
+LIVE NIFTY:
+  Spot: ${nifty?.latest?.toFixed(2) ?? 'unavailable'}${niftyAtEntry ? `  (entry day close: ${niftyAtEntry}, move since entry: ${niftyMove}%)` : ''}
+  ATR (14d): ${atr ?? '—'} pts
+  HV-10: ${hv10 ?? '—'}%  HV-20: ${hv20 ?? '—'}%
+  5-day trend: ${trendPct != null ? (trendPct > 0 ? '+' : '') + trendPct + '%' : '—'}
+  Weekly expected move: ${weeklyMove ? `±${weeklyMove} pts` : '—'}
+
+INDIA VIX:
+  Current: ${vix?.latest?.toFixed(2) ?? 'unavailable'}  (${vix?.changePct != null ? (vix.changePct > 0 ? '+' : '') + vix.changePct + '% today' : ''})
+  ${vix?.latest && hv10 ? `VIX/HV ratio: ${(vix.latest / parseFloat(hv10)).toFixed(2)}× ${vix.latest / parseFloat(hv10) > 1.2 ? '→ options overpriced (sell bias)' : vix.latest / parseFloat(hv10) < 0.8 ? '→ options cheap (buy bias)' : '→ fairly priced'}` : ''}
+
+GLOBAL MARKETS (today):
+  S&P 500:      ${sp500 ? `${sp500.changePct > 0 ? '+' : ''}${sp500.changePct}%` : 'unavailable'}
+  Crude Oil:    ${crude ? `$${crude.latest?.toFixed(1)}  (${crude.changePct > 0 ? '+' : ''}${crude.changePct}%)` : 'unavailable'}
+  Dollar Index: ${dxy   ? `${dxy.latest?.toFixed(2)}  (${dxy.changePct > 0 ? '+' : ''}${dxy.changePct}%)` : 'unavailable'}
+
+RECENT CANDLESTICK PATTERNS (last 6 sessions):
+${patterns.map(p => '  ' + p).join('\n')}
+
+Respond in this EXACT format with no other text:
+
+## Outlook
+[2-3 lines: is the trade working, momentum in your favour?]
+
+## Profit Target
+[Specific NIFTY level to exit for profit. Expected premium value at that level if possible.]
+
+## Stop Loss
+[Specific NIFTY level or % loss on premium to trigger exit. Be precise.]
+
+## Time-based Rules
+[When to exit based on DTE — e.g. "exit by Wed if <50% max profit", theta decay guidance]
+
+## If Market Moves Against You
+[Concrete adjustment or defensive action with specific levels]
+
+## Key Levels to Watch
+[2-4 support/resistance levels with brief reasoning]
+
+## Risk Rating
+[One line: Low / Medium / High risk, with reason]`;
+
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client    = new Anthropic.default({ apiKey });
+    const message   = await client.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages:   [{ role: 'user', content: prompt }],
+    });
+    const plan = message.content[0]?.text || '';
+    const now  = new Date().toISOString();
+    db.prepare('UPDATE trades SET exit_plan = ?, exit_plan_at = ? WHERE id = ?').run(plan, now, trade.id);
+    res.json({ exit_plan: plan, exit_plan_at: now });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Claude API call failed' });
+  }
+});
+
+// GET /api/trades/:id/exit-plan  — fetch saved plan
+router.get('/:id/exit-plan', (req, res) => {
+  const row = db.prepare('SELECT exit_plan, exit_plan_at FROM trades WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Trade not found' });
+  res.json({ exit_plan: row.exit_plan || null, exit_plan_at: row.exit_plan_at || null });
+});
+
 module.exports = router;
