@@ -93,7 +93,9 @@ function PayoffTooltip({ active, payload, label }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PayoffGraph({ trade }) {
   const legs = useMemo(() => {
-    try { return JSON.parse(trade?.legs || '[]'); } catch { return []; }
+    const raw = trade?.legs;
+    if (Array.isArray(raw)) return raw;
+    try { return JSON.parse(raw || '[]'); } catch { return []; }
   }, [trade?.legs]);
 
   const [spot,    setSpot]    = useState(null);
