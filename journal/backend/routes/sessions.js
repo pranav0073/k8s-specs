@@ -86,7 +86,152 @@ router.get('/quote', async (req, res) => {
   }
 });
 
-// GET /api/sessions/analysis  — VIX / HV / ATR / range forecast / strategy suggestions
+// POST /api/sessions/ai-analysis  — AI-powered market analysis + strategy recommendation
+router.post('/ai-analysis', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not set.' });
+  }
+
+  // Reuse the same data pipeline as /analysis
+  const rows = db.prepare(
+    'SELECT date, open, high, low, close FROM market_sessions WHERE close IS NOT NULL ORDER BY date ASC LIMIT 60'
+  ).all();
+  if (rows.length < 3) {
+    return res.status(400).json({ error: 'Not enough session data (need ≥3).' });
+  }
+
+  const closes  = rows.map(r => r.close);
+  const logRets = closes.slice(1).map((c, i) => Math.log(c / closes[i]));
+  function calcHV(n) {
+    const r = logRets.slice(-n);
+    if (r.length < 2) return null;
+    const mean = r.reduce((a, b) => a + b, 0) / r.length;
+    const v    = r.reduce((a, b) => a + (b - mean) ** 2, 0) / (r.length - 1);
+    return (Math.sqrt(v * 252) * 100).toFixed(1);
+  }
+  const hv10 = calcHV(10), hv20 = calcHV(20);
+  const hvUsed = parseFloat(hv10 ?? hv20 ?? 0) || null;
+
+  const atrRows = rows.slice(-14).filter(r => r.high && r.low);
+  const atr = atrRows.length ? Math.round(atrRows.reduce((s, r) => s + r.high - r.low, 0) / atrRows.length) : null;
+
+  const currentClose = closes.at(-1);
+  const latestDate   = rows.at(-1).date;
+
+  const trendWindow = closes.slice(-6);
+  const trendPct = trendWindow.length >= 2
+    ? (((trendWindow.at(-1) - trendWindow[0]) / trendWindow[0]) * 100).toFixed(2)
+    : '0';
+
+  // Candlestick patterns (last 6 sessions)
+  const patternRows = rows.slice(-6);
+  const patterns = [];
+  for (let i = 0; i < patternRows.length; i++) {
+    const { date, open: o, high: h, low: l, close: c } = patternRows[i];
+    if (o == null || h == null || l == null || c == null) continue;
+    const body  = Math.abs(c - o);
+    const range = h - l || 0.001;
+    const upper = h - Math.max(o, c);
+    const lower = Math.min(o, c) - l;
+    const bull  = c > o;
+    if (body / range < 0.1)                          patterns.push(`${date}: Doji`);
+    else if (lower > 2*body && upper < body*0.3)     patterns.push(`${date}: ${bull ? 'Hammer' : 'Hanging Man'}`);
+    else if (upper > 2*body && lower < body*0.3)     patterns.push(`${date}: ${bull ? 'Inverted Hammer' : 'Shooting Star'}`);
+    else if (body / range > 0.75)                    patterns.push(`${date}: ${bull ? 'Bullish' : 'Bearish'} Marubozu`);
+    if (i > 0) {
+      const p = patternRows[i-1];
+      if (p.open != null && p.close != null) {
+        const pBull = p.close > p.open;
+        if (!bull && pBull && o >= p.close && c <= p.open) patterns.push(`${date}: Bearish Engulfing`);
+        if ( bull && !pBull && o <= p.close && c >= p.open) patterns.push(`${date}: Bullish Engulfing`);
+      }
+    }
+  }
+
+  // Fetch live data in parallel
+  async function fetchYahoo(symbol, range = '5d') {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+    const r   = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+    if (!r.ok) throw new Error(`${symbol} ${r.status}`);
+    const j = await r.json();
+    const result = j?.chart?.result?.[0];
+    if (!result) throw new Error(`No data ${symbol}`);
+    const cs = result.indicators.quote[0].close.filter(Boolean);
+    const latest = cs.at(-1), prev = cs.at(-2);
+    return { latest, changePct: prev ? ((latest - prev) / prev * 100).toFixed(2) : null };
+  }
+
+  const [vixR, sp500R, crudeR, dxyR] = await Promise.allSettled([
+    fetchYahoo('^INDIAVIX', '5d'),
+    fetchYahoo('^GSPC',     '5d'),
+    fetchYahoo('CL=F',      '5d'),
+    fetchYahoo('DX-Y.NYB',  '5d'),
+  ]);
+
+  const vix   = vixR.status   === 'fulfilled' ? vixR.value   : null;
+  const sp500 = sp500R.status === 'fulfilled' ? sp500R.value : null;
+  const crude = crudeR.status === 'fulfilled' ? crudeR.value : null;
+  const dxy   = dxyR.status   === 'fulfilled' ? dxyR.value   : null;
+
+  const weeklyMove = vix?.latest && currentClose
+    ? Math.round(currentClose * (vix.latest / 100) * Math.sqrt(5 / 252))
+    : (hvUsed && currentClose ? Math.round(currentClose * (hvUsed / 100) * Math.sqrt(5 / 252)) : null);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const prompt = `You are an expert NIFTY options market analyst. Analyse the current market conditions below and provide a clear, actionable strategy recommendation for the coming week.
+
+TODAY: ${today}
+NIFTY close: ${currentClose} (as of ${latestDate})
+5-day trend: ${Number(trendPct) >= 0 ? '+' : ''}${trendPct}% (${Number(trendPct) > 1.5 ? 'Strong Bullish' : Number(trendPct) > 0.4 ? 'Bullish' : Number(trendPct) < -1.5 ? 'Strong Bearish' : Number(trendPct) < -0.4 ? 'Bearish' : 'Sideways'})
+ATR (14-day): ${atr ?? '—'} pts/day
+HV-10: ${hv10 ?? '—'}%  HV-20: ${hv20 ?? '—'}%
+Weekly expected move: ${weeklyMove ? `±${weeklyMove} pts (range ${Math.round(currentClose - weeklyMove)}–${Math.round(currentClose + weeklyMove)})` : '—'}
+
+INDIA VIX (live): ${vix ? `${vix.latest?.toFixed(2)} (${Number(vix.changePct) >= 0 ? '+' : ''}${vix.changePct}% today)` : 'unavailable'}
+VIX/HV ratio: ${vix?.latest && hvUsed ? (vix.latest / hvUsed).toFixed(2) + '× (' + (vix.latest / hvUsed > 1.2 ? 'options OVERPRICED vs history' : vix.latest / hvUsed < 0.8 ? 'options CHEAP vs history' : 'fairly priced') + ')' : '—'}
+
+GLOBAL MARKETS:
+  S&P 500:      ${sp500 ? `${Number(sp500.changePct) >= 0 ? '+' : ''}${sp500.changePct}%` : 'unavailable'}
+  Crude Oil:    ${crude ? `$${crude.latest?.toFixed(1)} (${Number(crude.changePct) >= 0 ? '+' : ''}${crude.changePct}%)` : 'unavailable'}
+  Dollar Index: ${dxy ? `${dxy.latest?.toFixed(2)} (${Number(dxy.changePct) >= 0 ? '+' : ''}${dxy.changePct}%)` : 'unavailable'}
+
+RECENT CANDLESTICK PATTERNS:
+${patterns.length ? patterns.map(p => '  ' + p).join('\n') : '  No notable patterns'}
+
+Respond in EXACTLY this format with no other text. Use specific NIFTY levels and strike prices (round to nearest 50):
+
+## Market Outlook
+[3-4 sentences. Synthesise VIX regime, trend, global cues, and candle patterns into a single directional view for the week.]
+
+## Top Strategy
+[Strategy name on first line. Then: specific strikes (e.g. Buy 23600 CE / Sell 24000 CE), max risk, max reward, and why this setup suits current conditions.]
+
+## Alternative Strategy
+[Strategy name on first line. Then: specific strikes, and when you'd prefer this over the top pick.]
+
+## Key Risks
+[2-3 bullet points. What market events or price levels would invalidate the analysis and force an early exit.]
+
+## Levels to Watch
+[3-4 specific NIFTY price levels with brief reasoning for each — support, resistance, breakout triggers.]`;
+
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client    = new Anthropic.default({ apiKey });
+    const message   = await client.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages:   [{ role: 'user', content: prompt }],
+    });
+    res.json({ analysis: message.content[0]?.text || '', generatedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Claude API call failed' });
+  }
+});
+
+
 router.get('/analysis', async (req, res) => {
   const rows = db.prepare(
     'SELECT date, open, high, low, close FROM market_sessions WHERE close IS NOT NULL ORDER BY date ASC LIMIT 60'

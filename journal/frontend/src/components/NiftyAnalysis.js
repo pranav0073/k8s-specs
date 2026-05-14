@@ -1,5 +1,105 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+
+const AI_SECTION_META = {
+  'Market Outlook':      { icon: '📊', cls: 'ep-outlook',  label: 'Market Outlook' },
+  'Top Strategy':        { icon: '🎯', cls: 'ep-target',   label: 'Top Strategy' },
+  'Alternative Strategy':{ icon: '🔄', cls: 'ep-time',     label: 'Alternative Strategy' },
+  'Key Risks':           { icon: '⚠️', cls: 'ep-adjust',   label: 'Key Risks' },
+  'Levels to Watch':     { icon: '📍', cls: 'ep-levels',   label: 'Levels to Watch' },
+};
+
+function parseAiSections(text) {
+  return text.split(/^## /m).filter(Boolean).map(sec => {
+    const nl    = sec.indexOf('\n');
+    const title = nl === -1 ? sec.trim() : sec.slice(0, nl).trim();
+    const body  = nl === -1 ? '' : sec.slice(nl + 1).trim();
+    const meta  = AI_SECTION_META[title] || { icon: '•', cls: '', label: title };
+    return { title, body, meta };
+  });
+}
+
+function AiAnalysisPanel() {
+  const [analysis,    setAnalysis]    = useState(null);
+  const [generatedAt, setGeneratedAt] = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState('');
+
+  const generate = async () => {
+    setLoading(true); setError('');
+    try {
+      const r = await axios.post('/api/sessions/ai-analysis');
+      setAnalysis(r.data.analysis);
+      setGeneratedAt(r.data.generatedAt);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to generate analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="form-card" style={{ padding: 0 }}>
+      <div className="ep-header">
+        <div>
+          <div className="ep-title">✦ AI Market Analysis</div>
+          {generatedAt && (
+            <div className="ep-timestamp">
+              Generated: {new Date(generatedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={generate}
+          disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          {loading ? <><span className="ep-spinner" /> Analysing…</> : analysis ? '↻ Refresh' : '✦ Generate'}
+        </button>
+      </div>
+
+      {error && <div className="ep-error">{error}</div>}
+
+      {!analysis && !loading && (
+        <div className="ep-empty">
+          <div className="ep-empty-icon">✦</div>
+          <div>Click <strong>Generate</strong> to get an AI-powered market outlook, strategy picks, key risks, and levels to watch — using live VIX, global markets, and candlestick patterns.</div>
+        </div>
+      )}
+
+      {loading && (
+        <div className="ep-generating">
+          <div className="ep-gen-row"><span className="ep-spinner-lg" /> Fetching live data and analysing…</div>
+          <div className="ep-gen-hint">India VIX · S&amp;P 500 · Crude Oil · DXY · candlestick patterns</div>
+        </div>
+      )}
+
+      {analysis && !loading && (
+        <div className="ep-sections">
+          {parseAiSections(analysis).map((sec, i) => (
+            <div key={i} className={`ep-section ${sec.meta.cls}`}>
+              <div className="ep-section-title">
+                <span className="ep-section-icon">{sec.meta.icon}</span>
+                {sec.meta.label}
+              </div>
+              <div className="ep-section-body ep-md">
+                <ReactMarkdown>{sec.body}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {analysis && (
+        <div className="ep-disclaimer">
+          AI analysis uses live market data and historical sessions. Not financial advice — verify before trading.
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TREND_META = {
   strong_bullish: { label: 'Strong Bullish', icon: '▲▲', cls: 'pos' },
@@ -220,9 +320,12 @@ export default function NiftyAnalysis() {
         </div>
       </div>
 
+      {/* ── AI-powered analysis panel ────────────────────────────── */}
+      <AiAnalysisPanel />
+
       <div className="an-disclaimer">
-        This analysis uses India VIX and historical price data only. It does not constitute financial advice.
-        Always assess current market conditions and your own risk tolerance before trading.
+        Rule-based signals use India VIX and historical price data only. AI analysis additionally uses live global markets.
+        Neither constitutes financial advice — always verify before trading.
       </div>
     </div>
   );
