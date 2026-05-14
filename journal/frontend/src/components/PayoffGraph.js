@@ -127,7 +127,7 @@ export default function PayoffGraph({ trade }) {
       if (iv && isFinite(iv)) setIvPct(+(iv * 100).toFixed(1));
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [trade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trade?.id]); // eslint-disable-line
 
   const sigma = ivPct / 100;
 
