@@ -57,6 +57,17 @@ if (!sessionCols.find(c => c.name === 'images')) {
   db.exec("ALTER TABLE market_sessions ADD COLUMN images TEXT DEFAULT '[]'");
 }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS market_analysis (
+    id           INTEGER PRIMARY KEY,
+    analysis     TEXT,
+    generated_at TEXT
+  )
+`);
+// Seed the singleton row so GET always finds a row
+const hasRow = db.prepare('SELECT id FROM market_analysis WHERE id = 1').get();
+if (!hasRow) db.prepare('INSERT INTO market_analysis (id) VALUES (1)').run();
+
 // Migration: add images column to trade_comments
 const commentCols = db.prepare('PRAGMA table_info(trade_comments)').all();
 if (!commentCols.find(c => c.name === 'images')) {

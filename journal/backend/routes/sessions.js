@@ -225,10 +225,19 @@ Respond in EXACTLY this format with no other text. Use specific NIFTY levels and
     max_tokens: 1024,
     messages:   [{ role: 'user', content: prompt }],
   });
-  res.json({ analysis: message.content[0]?.text || '', generatedAt: new Date().toISOString() });
+  const analysis = message.content[0]?.text || '';
+  const now      = new Date().toISOString();
+  db.prepare('UPDATE market_analysis SET analysis = ?, generated_at = ? WHERE id = 1').run(analysis, now);
+  res.json({ analysis, generatedAt: now });
   } catch (err) {
     if (!res.headersSent) res.status(502).json({ error: err.message || 'AI analysis failed' });
   }
+});
+
+// GET /api/sessions/ai-analysis  — fetch saved analysis
+router.get('/ai-analysis', (req, res) => {
+  const row = db.prepare('SELECT analysis, generated_at FROM market_analysis WHERE id = 1').get();
+  res.json({ analysis: row?.analysis || null, generatedAt: row?.generated_at || null });
 });
 
 

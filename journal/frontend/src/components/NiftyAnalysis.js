@@ -26,6 +26,15 @@ function AiAnalysisPanel() {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
 
+  useEffect(() => {
+    axios.get('/api/sessions/ai-analysis').then(r => {
+      if (r.data.analysis) {
+        setAnalysis(r.data.analysis);
+        setGeneratedAt(r.data.generatedAt);
+      }
+    }).catch(() => {});
+  }, []);
+
   const generate = async () => {
     setLoading(true); setError('');
     try {
