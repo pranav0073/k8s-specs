@@ -6,6 +6,29 @@ import React, { useState } from 'react';
 
 const RELEASES = [
   {
+    date: '2026-05-14',
+    entries: [
+      {
+        type: 'feature',
+        title: 'AI Market Analysis on Analysis tab',
+        description:
+          'A new "AI Market Analysis" panel on the Analysis page uses Claude to generate a weekly market outlook, top strategy pick, alternative strategy, key risks, and levels to watch — synthesising live India VIX, S&P 500, Crude Oil, Dollar Index, historical volatility, ATR, and recent candlestick patterns.',
+      },
+      {
+        type: 'feature',
+        title: 'AI analysis persisted in database',
+        description:
+          'The last generated market analysis is saved to the database and loaded automatically when you open the Analysis tab, so you see the previous result instantly without regenerating. A "↻ Refresh" button regenerates and overwrites the saved analysis.',
+      },
+      {
+        type: 'fix',
+        title: 'AI route error handling hardened',
+        description:
+          'Both the AI market analysis and exit plan route handlers now wrap the full request body in try/catch, ensuring any unexpected error (database, network, or SDK) returns a proper error response instead of silently hanging.',
+      },
+    ],
+  },
+  {
     date: '2026-05-13',
     entries: [
       {
