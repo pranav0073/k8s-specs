@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trading Journal — UI Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1e3a5f; --blue: #2563eb; --green: #16a34a; --red: #dc2626;
+    --bg: #f0f2f5; --surface: #fff; --border: #e2e8f0; --muted: #64748b;
+    --text: #1a202c; --buy-bg: #eff6ff; --sell-bg: #fff1f2;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e8eaf0; color: var(--text); font-size: 14px; }
+
+  /* ── Tab switcher ── */
+  .option-tabs { display: flex; gap: 0; background: var(--navy); padding: 12px 24px 0; position: sticky; top: 0; z-index: 200; }
+  .option-tab { padding: 10px 22px; color: rgba(255,255,255,0.6); cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600; font-size: 13px; border: none; background: transparent; transition: all 0.15s; }
+  .option-tab:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .option-tab.active { background: var(--bg); color: var(--navy); }
+  .option-label { padding: 6px 24px 10px; background: var(--navy); font-size: 12px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
+
+  .mockup { display: none; }
+  .mockup.active { display: block; }
+
+  /* ── Shared navbar ── */
+  .navbar { display: flex; align-items: center; justify-content: space-between; background: var(--navy); padding: 0 24px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .navbar-brand { font-size: 17px; font-weight: 700; color: #fff; }
+  .navbar-links { display: flex; gap: 4px; align-items: center; }
+  .nav-link { color: rgba(255,255,255,0.7); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .nav-link:hover, .nav-link.active { color: #fff; background: rgba(255,255,255,0.12); }
+  .nav-link.add { background: var(--blue); color: #fff; font-weight: 600; }
+
+  .page { background: var(--bg); min-height: calc(100vh - 52px); padding: 24px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+
+  /* ── NIFTY data pill ── */
+  .nifty-bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .nifty-val { text-align: center; }
+  .nifty-val .lbl { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nifty-val .val { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  .nifty-val .val.up   { color: var(--green); }
+  .nifty-val .val.down { color: var(--red); }
+  .nifty-divider { width: 1px; height: 36px; background: var(--border); }
+  .change-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; }
+  .change-chip.up   { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+  .change-chip.down { background: #fef2f2; color: var(--red);   border: 1px solid #fecaca; }
+
+  /* ── Timeline rows ── */
+  .timeline { display: flex; flex-direction: column; gap: 8px; }
+  .tl-row { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .tl-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; cursor: pointer; user-select: none; transition: background 0.12s; }
+  .tl-header:hover { background: #f8faff; }
+  .tl-date { font-weight: 700; font-size: 13px; min-width: 90px; }
+  .tl-ohlc { display: flex; gap: 14px; flex: 1; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .tl-ohlc span strong { color: var(--text); }
+  .tl-chg { font-weight: 700; font-size: 13px; min-width: 80px; text-align: right; }
+  .tl-chg.up   { color: var(--green); }
+  .tl-chg.down { color: var(--red); }
+  .tl-chevron { color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+  .tl-chevron.open { transform: rotate(180deg); }
+  .tl-body { border-top: 1px solid var(--border); padding: 14px 16px; background: #fafbfd; display: none; }
+  .tl-body.open { display: block; }
+  .tl-day-bar { height: 6px; border-radius: 3px; margin-bottom: 12px; background: linear-gradient(to right, var(--green) 0%, var(--green) 60%, var(--red) 60%, var(--red) 100%); width: 100%; max-width: 300px; }
+  .tl-trades { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .leg-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .leg-badge.buy  { background: var(--buy-bg); color: var(--blue); border: 1px solid #bfdbfe; }
+  .leg-badge.sell { background: var(--sell-bg); color: var(--red);  border: 1px solid #fecaca; }
+  .trade-chip { background: #eff6ff; border: 1px solid #bfdbfe; color: var(--navy); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; display: inline-flex; gap: 8px; align-items: center; }
+  .trade-chip .pnl { font-weight: 700; }
+  .trade-chip .pnl.up   { color: var(--green); }
+  .trade-chip .pnl.down { color: var(--red); }
+
+  /* ── Grid helpers ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  /* ── Option B: collapsible panel ── */
+  .panel-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; margin-bottom: 12px; }
+  .panel-toggle:hover { background: #f8faff; }
+  .panel-body { background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 10px 10px; border-top: none; padding: 16px; margin-top: -12px; margin-bottom: 16px; display: none; }
+  .panel-body.open { display: block; }
+
+  /* ── Option C: split view ── */
+  .split { display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
+  .split-left { display: flex; flex-direction: column; gap: 8px; }
+  .split-right { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .session-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: pointer; }
+  .session-card.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+  .session-header { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .session-header:hover { background: #f8faff; }
+  .session-detail { border-top: 1px solid var(--border); padding: 12px 14px; background: #fafbfd; display: none; }
+  .session-detail.open { display: block; }
+  .day-strip { height: 4px; border-radius: 0; }
+  .day-strip.up   { background: var(--green); }
+  .day-strip.down { background: var(--red); }
+
+  /* ── Misc ── */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .badge.open   { background: #eff6ff; color: var(--blue); }
+  .badge.closed { background: #f0fdf4; color: var(--green); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .mb8  { margin-bottom: 8px; }
+  .mb12 { margin-bottom: 12px; }
+  .mb16 { margin-bottom: 16px; }
+  .mt8  { margin-top: 8px; }
+  .mt12 { margin-top: 12px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  h2 { font-size: 18px; font-weight: 700; }
+  h3 { font-size: 14px; font-weight: 700; }
+  .btn { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .input-group { display: flex; flex-direction: column; gap: 4px; }
+  .input-group label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .input-group input { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 100px; }
+  .notes-box { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; resize: none; font-family: inherit; }
+
+  /* range bar */
+  .range-bar-wrap { margin: 12px 0 4px; }
+  .range-bar-track { height: 8px; background: #fee2e2; border-radius: 4px; position: relative; }
+  .range-bar-fill  { height: 8px; background: var(--green); border-radius: 4px; width: 62%; }
+  .range-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .range-bar-cur { position: absolute; top: -4px; left: 62%; width: 16px; height: 16px; background: var(--blue); border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transform: translateX(-50%); }
+</style>
+</head>
+<body>
+
+<!-- Tab switcher -->
+<div class="option-tabs">
+  <button class="option-tab active" onclick="showOption(0)">Option A — Market Tab</button>
+  <button class="option-tab" onclick="showOption(1)">Option B — Collapsible Panel</button>
+  <button class="option-tab" onclick="showOption(2)">Option C — Market Diary</button>
+</div>
+<div class="option-label" id="opt-label">Dedicated Market tab with daily OHLC entry and collapsible session timeline</div>
+
+<!-- ═══════════════════════════════════════════════════════ OPTION A -->
+<div class="mockup active" id="opt-0">
+  <div class="navbar">
+    <div class="navbar-brand">Trading Journal</div>
+    <div class="navbar-links">
+      <span class="nav-link">Dashboard</span>
+      <span class="nav-link">Trades</span>
+      <span class="nav-link active">Market</span>
+      <span class="nav-link add">+ Add Trade</span>
+    </div>
+  </div>
+  <div class="page">
+
+    <!-- Today card -->
+    <div class="row mb16" style="justify-content:space-between; align-items:flex-start;">
+      <h2>Market Overview</h2>
+      <div class="row">
+        <span class="muted">12 May 2026</span>
+        <button class="btn btn-primary btn-sm">+ Log Today</button>
+      </div>
+    </div>
+
+    <div class="card mb16">
+      <div class="section-title">Today · NIFTY 50</div>
+      <div class="nifty-bar">
+        <div class="nifty-val">
+          <div class="lbl">Open</div>
+          <div class="val">23,810</div>
+        </div>
+        <div class="nifty-divider"></div>
+        <div class="nifty-val">
+          <div class="lbl">High</div>
+          <div class="val up">24,050</div>
+        </div>
+        <div class="nifty-divider"></div>
+        <div class="nifty-val">
+          <div class="lbl">Low</div>
+          <div class="val down">23,740</div>
+        </div>
+        <div class="nifty-divider"></div>
+        <div class="nifty-val">
+          <div class="lbl">Close</div>
+          <div class="val">23,985</div>
+        </div>
+        <div class="nifty-divider"></div>
+        <div class="nifty-val">
+          <div class="lbl">Prev Close</div>
+          <div class="val">23,815</div>
+        </div>
+        <div class="nifty-divider"></div>
+        <div class="nifty-val">
+          <div class="lbl">Change</div>
+          <div style="margin-top:4px;"><span class="change-chip up">▲ 170 pts &nbsp; +0.71%</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <!-- Day range bar -->
+        <div style="min-width:180px;">
+          <div class="lbl" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Day Range</div>
+          <div class="range-bar-track">
+            <div class="range-bar-fill"></div>
+            <div class="range-bar-cur"></div>
+          </div>
+          <div class="range-bar-labels"><span>23,740</span><span>24,050</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <h3 class="mb12">Session Timeline</h3>
+    <div class="timeline">
+
+      <!-- Row 1 — expanded -->
+      <div class="tl-row">
+        <div class="tl-header" onclick="toggleTl(this)">
+          <div class="tl-date">12 May 2026</div>
+          <div class="tl-ohlc">
+            <span>O <strong>23,810</strong></span>
+            <span>H <strong>24,050</strong></span>
+            <span>L <strong>23,740</strong></span>
+            <span>C <strong>23,985</strong></span>
+          </div>
+          <div class="tl-chg up">▲ 170 &nbsp;+0.71%</div>
+          <span class="tl-chevron open">▲</span>
+        </div>
+        <div class="tl-body open">
+          <div class="muted mb8">Range: 310 pts &nbsp;·&nbsp; Trend: Bullish &nbsp;·&nbsp; Gap up open</div>
+          <div class="tl-day-bar"></div>
+          <div class="muted mb8">Trades on this day</div>
+          <div class="tl-trades">
+            <div class="trade-chip">
+              <span>Calendar Spread · 23600PE</span>
+              <span class="pnl up">+₹4,225</span>
+              <span class="badge closed">closed</span>
+            </div>
+            <div class="trade-chip">
+              <span>Straddle · 23800</span>
+              <span class="pnl down">−₹1,300</span>
+              <span class="badge open">open</span>
+            </div>
+          </div>
+          <textarea class="notes-box mt8" rows="2" placeholder="Session notes — market sentiment, key levels, observations…">Strong gap up, held above 23900 all day. IV crushed post-open.</textarea>
+        </div>
+      </div>
+
+      <!-- Row 2 — collapsed -->
+      <div class="tl-row">
+        <div class="tl-header" onclick="toggleTl(this)">
+          <div class="tl-date">09 May 2026</div>
+          <div class="tl-ohlc">
+            <span>O <strong>23,640</strong></span>
+            <span>H <strong>23,820</strong></span>
+            <span>L <strong>23,510</strong></span>
+            <span>C <strong>23,815</strong></span>
+          </div>
+          <div class="tl-chg up">▲ 125 &nbsp;+0.53%</div>
+          <span class="tl-chevron">▼</span>
+        </div>
+        <div class="tl-body">
+          <div class="muted mb8">Range: 310 pts &nbsp;·&nbsp; Trend: Sideways</div>
+          <div class="tl-trades">
+            <div class="trade-chip"><span>Iron Condor · 23500/23800</span><span class="pnl up">+₹2,860</span><span class="badge closed">closed</span></div>
+          </div>
+          <textarea class="notes-box mt8" rows="2" placeholder="Session notes…">Choppy session. Condor expired worthless.</textarea>
+        </div>
+      </div>
+
+      <!-- Row 3 — red day -->
+      <div class="tl-row">
+        <div class="tl-header" onclick="toggleTl(this)">
+          <div class="tl-date">08 May 2026</div>
+          <div class="tl-ohlc">
+            <span>O <strong>23,900</strong></span>
+            <span>H <strong>23,950</strong></span>
+            <span>L <strong>23,580</strong></span>
+            <span>C <strong>23,690</strong></span>
+          </div>
+          <div class="tl-chg down">▼ −310 &nbsp;−1.29%</div>
+          <span class="tl-chevron">▼</span>
+        </div>
+        <div class="tl-body"></div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="tl-row">
+        <div class="tl-header" onclick="toggleTl(this)">
+          <div class="tl-date">07 May 2026</div>
+          <div class="tl-ohlc">
+            <span>O <strong>23,750</strong></span>
+            <span>H <strong>24,010</strong></span>
+            <span>L <strong>23,700</strong></span>
+            <span>C <strong>24,000</strong></span>
+          </div>
+          <div class="tl-chg up">▲ 215 &nbsp;+0.90%</div>
+          <span class="tl-chevron">▼</span>
+        </div>
+        <div class="tl-body"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ OPTION B -->
+<div class="mockup" id="opt-1">
+  <div class="navbar">
+    <div class="navbar-brand">Trading Journal</div>
+    <div class="navbar-links">
+      <span class="nav-link">Dashboard</span>
+      <span class="nav-link active">Trades</span>
+      <span class="nav-link add">+ Add Trade</span>
+    </div>
+  </div>
+  <div class="page">
+
+    <!-- Collapsible NIFTY panel -->
+    <div class="panel-toggle" onclick="togglePanel(this)" style="border-radius:10px 10px 10px 10px; margin-bottom:12px;" id="panel-btn">
+      <div class="row" style="gap:16px;">
+        <span style="font-weight:700;font-size:13px;">NIFTY 50</span>
+        <span style="font-size:20px;font-weight:700;">23,985</span>
+        <span class="change-chip up" style="font-size:12px;">▲ 170 pts &nbsp;+0.71%</span>
+        <span class="muted" style="font-size:12px;">O 23,810 &nbsp; H 24,050 &nbsp; L 23,740</span>
+      </div>
+      <div class="row" style="gap:8px;">
+        <span class="muted" style="font-size:12px;">12 May 2026</span>
+        <span style="color:var(--blue);font-size:12px;font-weight:600;">▼ Show history</span>
+      </div>
+    </div>
+
+    <div class="panel-body open" id="nifty-panel" style="border-radius:0 0 10px 10px; border: 1px solid var(--border); border-top:none; margin-top:-12px; margin-bottom:16px; padding:16px;">
+      <div class="section-title mb12">Recent Sessions</div>
+      <div style="display:grid; grid-template-columns: repeat(5,1fr); gap:10px; margin-bottom:12px;">
+        <!-- mini session cards -->
+        <div class="card-sm" style="border-left: 3px solid var(--green);">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">12 May</div>
+          <div style="font-weight:700;">23,985</div>
+          <div style="font-size:12px;color:var(--green);font-weight:600;">▲ +0.71%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">H 24,050 · L 23,740</div>
+        </div>
+        <div class="card-sm" style="border-left: 3px solid var(--green);">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">09 May</div>
+          <div style="font-weight:700;">23,815</div>
+          <div style="font-size:12px;color:var(--green);font-weight:600;">▲ +0.53%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">H 23,820 · L 23,510</div>
+        </div>
+        <div class="card-sm" style="border-left: 3px solid var(--red);">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">08 May</div>
+          <div style="font-weight:700;">23,690</div>
+          <div style="font-size:12px;color:var(--red);font-weight:600;">▼ −1.29%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">H 23,950 · L 23,580</div>
+        </div>
+        <div class="card-sm" style="border-left: 3px solid var(--green);">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">07 May</div>
+          <div style="font-weight:700;">24,000</div>
+          <div style="font-size:12px;color:var(--green);font-weight:600;">▲ +0.90%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">H 24,010 · L 23,700</div>
+        </div>
+        <div class="card-sm" style="border-left: 3px solid var(--red);">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">06 May</div>
+          <div style="font-weight:700;">23,785</div>
+          <div style="font-size:12px;color:var(--red);font-weight:600;">▼ −0.34%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">H 23,900 · L 23,680</div>
+        </div>
+      </div>
+      <div style="text-align:center;"><a href="#" style="font-size:12px;color:var(--blue);">View full timeline →</a></div>
+    </div>
+
+    <!-- Trades table (same as before) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h2 style="font-size:18px;font-weight:700;">Trades</h2>
+      <button class="btn btn-primary btn-sm">+ Add Trade</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8f9fc;">
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Date</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Instrument</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Strategy</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Legs</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">P&L</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);">12 May</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);font-weight:700;">NIFTY</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);">Calendar Spread</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);"><span class="leg-badge sell">S 2L 23600PE 02 Jun</span> <span class="leg-badge buy">B 2L 23600PE 30 Jun</span></td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);color:var(--green);font-weight:700;">+₹4,225</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);"><span class="badge closed">closed</span></td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);">09 May</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);font-weight:700;">NIFTY</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);">Iron Condor</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);"><span class="leg-badge sell">S 1L 23800CE</span> <span class="leg-badge buy">B 1L 24000CE</span> <span class="leg-badge sell">S 1L 23500PE</span> <span class="leg-badge buy">B 1L 23300PE</span></td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);color:var(--red);font-weight:700;">−₹1,300</td>
+            <td style="padding:10px 14px;border-top:1px solid var(--border);"><span class="badge closed">closed</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ OPTION C -->
+<div class="mockup" id="opt-2">
+  <div class="navbar">
+    <div class="navbar-brand">Trading Journal</div>
+    <div class="navbar-links">
+      <span class="nav-link">Dashboard</span>
+      <span class="nav-link">Trades</span>
+      <span class="nav-link active">Journal</span>
+      <span class="nav-link add">+ Add Trade</span>
+    </div>
+  </div>
+  <div class="page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2>Market Journal</h2>
+      <button class="btn btn-primary btn-sm">+ Log Session</button>
+    </div>
+
+    <div class="split">
+      <!-- Left: session list -->
+      <div class="split-left">
+
+        <div class="session-card selected" onclick="selectSession(this, 'detail-1')">
+          <div class="day-strip up"></div>
+          <div class="session-header">
+            <div>
+              <div style="font-weight:700;font-size:13px;">12 May 2026</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">23,985 &nbsp;·&nbsp; <span style="color:var(--green);font-weight:600;">▲ +170 pts (+0.71%)</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;color:var(--muted);">2 trades</div>
+              <div style="font-size:12px;font-weight:700;color:var(--green);">+₹2,925</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" onclick="selectSession(this, 'detail-2')">
+          <div class="day-strip up"></div>
+          <div class="session-header">
+            <div>
+              <div style="font-weight:700;font-size:13px;">09 May 2026</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">23,815 &nbsp;·&nbsp; <span style="color:var(--green);font-weight:600;">▲ +125 pts (+0.53%)</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;color:var(--muted);">1 trade</div>
+              <div style="font-size:12px;font-weight:700;color:var(--green);">+₹2,860</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" onclick="selectSession(this, 'detail-3')">
+          <div class="day-strip down"></div>
+          <div class="session-header">
+            <div>
+              <div style="font-weight:700;font-size:13px;">08 May 2026</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">23,690 &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600;">▼ −310 pts (−1.29%)</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;color:var(--muted);">1 trade</div>
+              <div style="font-size:12px;font-weight:700;color:var(--red);">−₹1,950</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" onclick="selectSession(this, 'detail-4')">
+          <div class="day-strip up"></div>
+          <div class="session-header">
+            <div>
+              <div style="font-weight:700;font-size:13px;">07 May 2026</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">24,000 &nbsp;·&nbsp; <span style="color:var(--green);font-weight:600;">▲ +215 pts (+0.90%)</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;color:var(--muted);">No trades</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" onclick="selectSession(this, 'detail-4')">
+          <div class="day-strip down"></div>
+          <div class="session-header">
+            <div>
+              <div style="font-weight:700;font-size:13px;">06 May 2026</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">23,785 &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600;">▼ −80 pts (−0.34%)</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;color:var(--muted);">No trades</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: session detail -->
+      <div class="split-right" id="detail-1">
+        <div class="row mb16" style="justify-content:space-between;">
+          <div>
+            <div style="font-size:18px;font-weight:700;">12 May 2026</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:2px;">Monday · Weekly expiry week</div>
+          </div>
+          <button class="btn btn-sm">Edit</button>
+        </div>
+
+        <!-- OHLC grid -->
+        <div class="grid-4 mb16">
+          <div class="card-sm" style="text-align:center;">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Open</div>
+            <div style="font-size:18px;font-weight:700;">23,810</div>
+          </div>
+          <div class="card-sm" style="text-align:center;">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">High</div>
+            <div style="font-size:18px;font-weight:700;color:var(--green);">24,050</div>
+          </div>
+          <div class="card-sm" style="text-align:center;">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Low</div>
+            <div style="font-size:18px;font-weight:700;color:var(--red);">23,740</div>
+          </div>
+          <div class="card-sm" style="text-align:center;">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Close</div>
+            <div style="font-size:18px;font-weight:700;">23,985</div>
+          </div>
+        </div>
+
+        <!-- Change chips -->
+        <div class="row mb16">
+          <span class="change-chip up">▲ 170 pts from prev close</span>
+          <span class="change-chip up">+0.71%</span>
+          <span style="font-size:12px;color:var(--muted);">Range: 310 pts &nbsp;·&nbsp; Prev close: 23,815</span>
+        </div>
+
+        <!-- Range bar -->
+        <div class="range-bar-wrap mb16">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Intraday Range</div>
+          <div class="range-bar-track">
+            <div class="range-bar-fill"></div>
+            <div class="range-bar-cur"></div>
+          </div>
+          <div class="range-bar-labels"><span>L 23,740</span><span>Close 23,985</span><span>H 24,050</span></div>
+        </div>
+
+        <!-- Trades -->
+        <div class="section-title mb8">Trades on this day</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:13px;">Calendar Spread &nbsp;·&nbsp; 23600PE</div>
+              <div style="margin-top:4px;"><span class="leg-badge sell">S 2L 02Jun</span> <span class="leg-badge buy">B 2L 30Jun</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:700;color:var(--green);">+₹4,225</div>
+              <span class="badge closed">closed</span>
+            </div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:13px;">Straddle &nbsp;·&nbsp; 23800</div>
+              <div style="margin-top:4px;"><span class="leg-badge sell">S 1L CE</span> <span class="leg-badge sell">S 1L PE</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:700;color:var(--red);">−₹1,300</div>
+              <span class="badge open">open</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="section-title mb8">Session Notes</div>
+        <textarea class="notes-box" rows="3">Strong gap up at open, held above 23900 all day. IV crushed significantly post open. Calendar working well. Straddle still open, might adjust tomorrow.</textarea>
+      </div>
+
+      <div class="split-right" id="detail-2" style="display:none;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">09 May 2026</div>
+        <div class="row mb16"><span class="change-chip up">▲ 125 pts &nbsp; +0.53%</span></div>
+        <div class="grid-4 mb16">
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Open</div><div style="font-size:18px;font-weight:700;">23,640</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">High</div><div style="font-size:18px;font-weight:700;color:var(--green);">23,820</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Low</div><div style="font-size:18px;font-weight:700;color:var(--red);">23,510</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Close</div><div style="font-size:18px;font-weight:700;">23,815</div></div>
+        </div>
+        <div class="section-title mb8">Trades on this day</div>
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+          <div><div style="font-weight:700;">Iron Condor · 23500/23800</div></div>
+          <div style="font-size:16px;font-weight:700;color:var(--green);">+₹2,860</div>
+        </div>
+      </div>
+
+      <div class="split-right" id="detail-3" style="display:none;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">08 May 2026</div>
+        <div class="row mb16"><span class="change-chip down">▼ −310 pts &nbsp; −1.29%</span></div>
+        <div class="grid-4 mb16">
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Open</div><div style="font-size:18px;font-weight:700;">23,900</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">High</div><div style="font-size:18px;font-weight:700;color:var(--green);">23,950</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Low</div><div style="font-size:18px;font-weight:700;color:var(--red);">23,580</div></div>
+          <div class="card-sm" style="text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Close</div><div style="font-size:18px;font-weight:700;">23,690</div></div>
+        </div>
+        <div class="section-title mb8">Trades on this day</div>
+        <div style="border:1px solid var(--border);border-left:3px solid var(--red);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+          <div><div style="font-weight:700;">Bull Put Spread · 23500/23400</div></div>
+          <div style="font-size:16px;font-weight:700;color:var(--red);">−₹1,950</div>
+        </div>
+        <textarea class="notes-box mt8" rows="2">Sharp selloff. Stop hit on bull put spread. Should have been more defensive given global cues.</textarea>
+      </div>
+
+      <div class="split-right" id="detail-4" style="display:none;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">07 May 2026</div>
+        <div class="row mb16"><span class="change-chip up">▲ +215 pts &nbsp; +0.90%</span></div>
+        <div style="color:var(--muted);padding:32px;text-align:center;">No trades logged for this session.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const labels = [
+    'Dedicated Market tab — new navbar item, collapsible timeline rows, each row shows OHLC + linked trades when expanded',
+    'Collapsible NIFTY panel on the Trades page — no new tab, recent sessions shown as mini cards, toggles open/closed',
+    'Market Diary — split view with session list on left, full session detail (OHLC + range bar + trades + notes) on right'
+  ];
+
+  function showOption(n) {
+    document.querySelectorAll('.mockup').forEach((m, i) => m.classList.toggle('active', i === n));
+    document.querySelectorAll('.option-tab').forEach((t, i) => t.classList.toggle('active', i === n));
+    document.getElementById('opt-label').textContent = labels[n];
+  }
+
+  function toggleTl(header) {
+    const body = header.nextElementSibling;
+    const chev = header.querySelector('.tl-chevron');
+    const open = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+    chev.textContent = open ? '▲' : '▼';
+  }
+
+  function togglePanel(btn) {
+    const panel = document.getElementById('nifty-panel');
+    const open  = panel.classList.toggle('open');
+    btn.style.borderRadius = open ? '10px 10px 0 0' : '10px';
+    btn.querySelector('span:last-child').textContent = open ? '▲ Hide history' : '▼ Show history';
+  }
+
+  function selectSession(card, detailId) {
+    document.querySelectorAll('#opt-2 .session-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.querySelectorAll('#opt-2 .split-right').forEach(d => d.style.display = 'none');
+    document.getElementById(detailId).style.display = 'block';
+  }
+</script>
+</body>
+</html>

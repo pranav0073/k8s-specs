@@ -1,0 +1,4 @@
+node_modules/
+journal.db
+.env
+frontend/build/
