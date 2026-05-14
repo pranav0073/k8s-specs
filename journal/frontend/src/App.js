@@ -4,9 +4,10 @@ import Dashboard   from './components/Dashboard';
 import TradeList   from './components/TradeList';
 import TradeForm   from './components/TradeForm';
 import TradeDetail from './components/TradeDetail';
-import MarketDiary from './components/MarketDiary';
-import Changelog   from './components/Changelog';
-import Charges     from './components/Charges';
+import MarketDiary    from './components/MarketDiary';
+import Changelog      from './components/Changelog';
+import Charges        from './components/Charges';
+import NiftyAnalysis  from './components/NiftyAnalysis';
 
 function Navbar() {
   return (
@@ -16,6 +17,7 @@ function Navbar() {
         <NavLink to="/" end>Dashboard</NavLink>
         <NavLink to="/trades">Trades</NavLink>
         <NavLink to="/journal">Journal</NavLink>
+        <NavLink to="/analysis">Analysis</NavLink>
         <NavLink to="/charges">Charges</NavLink>
         <NavLink to="/changelog">Changelog</NavLink>
         <NavLink to="/trades/new" className="add-btn">+ Add Trade</NavLink>
@@ -36,6 +38,7 @@ export default function App() {
           <Route path="/trades/:id"     element={<TradeDetail />} />
           <Route path="/trades/:id/edit" element={<TradeForm />} />
           <Route path="/journal"        element={<MarketDiary />} />
+          <Route path="/analysis"       element={<NiftyAnalysis />} />
           <Route path="/charges"        element={<Charges />} />
           <Route path="/changelog"      element={<Changelog />} />
         </Routes>
