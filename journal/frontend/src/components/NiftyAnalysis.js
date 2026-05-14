@@ -9,11 +9,17 @@ const TREND_META = {
   strong_bearish: { label: 'Strong Bearish',  icon: '▼▼', cls: 'neg' },
 };
 
-const HV_META = {
-  high:    { label: 'High (>20%)',    cls: 'hv-high',    tip: 'Options are expensive — premium selling favoured' },
-  normal:  { label: 'Normal (12-20%)',cls: 'hv-normal',  tip: 'Balanced environment — spreads and condors work well' },
-  low:     { label: 'Low (<12%)',     cls: 'hv-low',     tip: 'Options are cheap — premium buying favoured' },
-  unknown: { label: 'Insufficient data', cls: 'hv-normal', tip: '' },
+const VIX_META = {
+  low:      { label: 'Low  (<15)',     cls: 'vix-low',      bias: 'Buy premium — options are cheap',          color: '#2563eb' },
+  moderate: { label: 'Moderate (15-20)', cls: 'vix-moderate', bias: 'Balanced — spreads & condors work well',  color: '#16a34a' },
+  elevated: { label: 'Elevated (20-25)', cls: 'vix-elevated', bias: 'Sell premium — IV is rich',              color: '#d97706' },
+  high:     { label: 'High  (>25)',    cls: 'vix-high',     bias: 'Sell premium aggressively / hedge',        color: '#dc2626' },
+};
+
+const IV_SIGNAL_META = {
+  sell:    { label: 'Options overpriced vs history → favour selling',  cls: 'iv-sell' },
+  buy:     { label: 'Options cheap vs history → favour buying',        cls: 'iv-buy' },
+  neutral: { label: 'Options fairly priced vs history',                cls: 'iv-neutral' },
 };
 
 const SIDE_META = {
@@ -27,30 +33,24 @@ function fmt(n) {
   return Number(n).toLocaleString('en-IN');
 }
 
-function RangeBar({ ranges, currentClose }) {
+function RangeBar({ ranges, currentClose, moveSource }) {
   if (!ranges || ranges.length === 0) return null;
   const absMin = ranges[ranges.length - 1].low;
   const absMax = ranges[ranges.length - 1].high;
   const span   = absMax - absMin || 1;
-
-  const pct = v => ((v - absMin) / span * 100).toFixed(2) + '%';
-  const width = (lo, hi) => ((hi - lo) / span * 100).toFixed(2) + '%';
+  const pct    = v => ((v - absMin) / span * 100).toFixed(2) + '%';
+  const width  = (lo, hi) => ((hi - lo) / span * 100).toFixed(2) + '%';
+  const sourceLabel = moveSource === 'vix' ? 'India VIX' : moveSource === 'hv' ? 'HV' : 'ATR';
 
   return (
     <div className="range-chart">
+      <div className="range-source-note">Range computed from {sourceLabel} (±1σ per week)</div>
       {ranges.map(r => (
         <div key={r.week} className="range-row">
           <div className="range-label">Week {r.week}</div>
           <div className="range-track">
-            <div
-              className="range-bar"
-              style={{ left: pct(r.low), width: width(r.low, r.high) }}
-            />
-            <div
-              className="range-center"
-              style={{ left: pct(currentClose) }}
-              title={`Current: ${fmt(currentClose)}`}
-            />
+            <div className="range-bar" style={{ left: pct(r.low), width: width(r.low, r.high) }} />
+            <div className="range-center" style={{ left: pct(currentClose) }} title={`Current: ${fmt(currentClose)}`} />
           </div>
           <div className="range-values">
             <span className="neg">{fmt(r.low)}</span>
@@ -83,24 +83,60 @@ export default function NiftyAnalysis() {
         <div className="page-header"><h1>NIFTY Analysis</h1></div>
         <div className="empty-state">
           <h2>Not enough data yet</h2>
-          <p>Add at least 3 sessions with OHLC data in the Journal to generate analysis.<br />
+          <p>Add at least 3 sessions with OHLC data in the Journal.<br />
             You have <strong>{data.dataPoints}</strong> session{data.dataPoints !== 1 ? 's' : ''} so far.</p>
         </div>
       </div>
     );
   }
 
-  const trend   = TREND_META[data.trend]   || TREND_META.sideways;
-  const hvMeta  = HV_META[data.hvLevel]   || HV_META.normal;
+  const trend   = TREND_META[data.trend] || TREND_META.sideways;
+  const vixMeta = data.vixLevel ? VIX_META[data.vixLevel] : null;
+  const ivSig   = IV_SIGNAL_META[data.ivSignal] || IV_SIGNAL_META.neutral;
+  const vixUp   = data.vixChange != null && data.vixChange >= 0;
 
   return (
     <div className="analysis-page">
       <div className="page-header">
         <div>
           <h1>NIFTY Analysis</h1>
-          <span className="cl-subtitle">Based on {data.dataPoints} sessions · last updated {data.latestDate}</span>
+          <span className="cl-subtitle">Based on {data.dataPoints} sessions · last session {data.latestDate}</span>
         </div>
       </div>
+
+      {/* ── VIX hero card ─────────────────────────────────────────── */}
+      {data.vix != null ? (
+        <div className="vix-hero" style={{ borderColor: vixMeta?.color }}>
+          <div className="vix-hero-left">
+            <div className="vix-hero-label">India VIX  <span className="vix-live-dot" title="Live from NSE via Yahoo Finance" /></div>
+            <div className="vix-hero-value" style={{ color: vixMeta?.color }}>{data.vix}</div>
+            {data.vixChange != null && (
+              <div className={`vix-hero-change ${vixUp ? 'neg' : 'pos'}`}>
+                {vixUp ? '▲' : '▼'} {Math.abs(data.vixChange)} ({Math.abs(data.vixChangePct)}%)
+                <span style={{ fontWeight: 400, marginLeft: 4 }}>vs prev day</span>
+              </div>
+            )}
+          </div>
+          <div className="vix-hero-right">
+            {vixMeta && (
+              <>
+                <div className={`vix-level-badge ${vixMeta.cls}`}>{vixMeta.label}</div>
+                <div className="vix-bias">{vixMeta.bias}</div>
+              </>
+            )}
+            {data.vixVsHv != null && (
+              <div className={`iv-signal-chip ${ivSig.cls}`}>
+                VIX/HV = {data.vixVsHv}×  —  {ivSig.label}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="vix-hero vix-hero-error">
+          <div className="vix-hero-label">India VIX</div>
+          <div className="vix-error-msg">⚠ Could not fetch live VIX{data.vixError ? ` (${data.vixError})` : ''}. Analysis uses historical volatility.</div>
+        </div>
+      )}
 
       {/* ── Key metrics ──────────────────────────────────────────── */}
       <div className="an-metrics">
@@ -110,33 +146,35 @@ export default function NiftyAnalysis() {
           <div className="an-metric-sub">{data.latestDate}</div>
         </div>
         <div className="an-metric-card">
-          <div className="an-metric-label">Avg Daily Range (ATR)</div>
+          <div className="an-metric-label">ATR (14-day)</div>
           <div className="an-metric-value">{data.atr != null ? fmt(data.atr) : '—'}</div>
-          <div className="an-metric-sub">points (up to 14-day)</div>
+          <div className="an-metric-sub">avg daily range (pts)</div>
         </div>
         <div className="an-metric-card">
           <div className="an-metric-label">Historical Volatility</div>
-          <div className={`an-metric-value ${hvMeta.cls}`}>
-            {data.hvUsed != null ? data.hvUsed + '%' : '—'}
+          <div className="an-metric-value">{data.hvUsed != null ? data.hvUsed + '%' : '—'}</div>
+          <div className="an-metric-sub">
+            {data.hv10 && `HV10: ${data.hv10}%`}{data.hv10 && data.hv20 && '  '}{data.hv20 && `HV20: ${data.hv20}%`}
           </div>
-          <div className="an-metric-sub" title={hvMeta.tip}>{hvMeta.label}</div>
         </div>
         <div className="an-metric-card">
           <div className="an-metric-label">5-Day Trend</div>
-          <div className={`an-metric-value ${trend.cls}`}>
-            {trend.icon} {Math.abs(data.trendPct)}%
-          </div>
+          <div className={`an-metric-value ${trend.cls}`}>{trend.icon} {Math.abs(data.trendPct)}%</div>
           <div className="an-metric-sub">{trend.label}</div>
         </div>
       </div>
 
-      {/* ── HV detail row ────────────────────────────────────────── */}
-      {(data.hv10 || data.hv20) && (
-        <div className="an-hv-row">
-          {data.hv10 && <span>HV-10: <strong>{data.hv10}%</strong></span>}
-          {data.hv20 && <span>HV-20: <strong>{data.hv20}%</strong></span>}
-          {data.weeklyMove && <span>Weekly Expected Move: <strong>±{fmt(data.weeklyMove)} pts</strong></span>}
-          <span className="an-hv-note">{hvMeta.tip}</span>
+      {/* ── Weekly expected move callout ─────────────────────────── */}
+      {data.weeklyMove != null && (
+        <div className="an-move-callout">
+          <span className="an-move-label">Weekly Expected Move</span>
+          <span className="an-move-value">±{fmt(data.weeklyMove)} pts</span>
+          <span className="an-move-range">
+            ({fmt(Math.round(data.currentClose - data.weeklyMove))} – {fmt(Math.round(data.currentClose + data.weeklyMove))})
+          </span>
+          <span className="an-move-source">
+            Source: {data.weeklyMoveSource === 'vix' ? `India VIX ${data.vix}` : data.weeklyMoveSource === 'hv' ? `HV ${data.hvUsed}%` : 'ATR'}
+          </span>
         </div>
       )}
 
@@ -144,12 +182,12 @@ export default function NiftyAnalysis() {
       <div className="form-card">
         <h3>Expected Range — Next 4 Weeks</h3>
         <p className="an-chart-note">
-          Projected ±1σ range based on {data.hvUsed != null ? `HV (${data.hvUsed}%)` : 'ATR'}.
-          Wider bars = more uncertainty further out. Actual price may exceed these bounds.
+          Each bar shows the ±1σ range. Week 4 is widest because uncertainty compounds with time (√n rule).
+          Price can exceed these bounds — treat them as a probability band, not a hard limit.
         </p>
-        <RangeBar ranges={data.weeklyRanges} currentClose={data.currentClose} />
+        <RangeBar ranges={data.weeklyRanges} currentClose={data.currentClose} moveSource={data.weeklyMoveSource} />
         <div className="range-legend">
-          <span><span className="legend-bar" /> Expected range (±1σ)</span>
+          <span><span className="legend-bar" /> ±1σ expected range</span>
           <span><span className="legend-dot" /> Current NIFTY ({fmt(data.currentClose)})</span>
         </div>
       </div>
@@ -158,8 +196,9 @@ export default function NiftyAnalysis() {
       <div className="form-card">
         <h3>Suggested Strategies</h3>
         <p className="an-chart-note">
-          Based on {hvMeta.label} volatility + {trend.label.toLowerCase()} trend.
-          Strikes rounded to nearest 50. Verify with live IV before placing trades.
+          Primary signal: {data.vix != null ? `India VIX ${data.vix} (${vixMeta?.label})` : `HV ${data.hvUsed}%`}
+          {' · '}Trend: {trend.label} ({data.trendPct > 0 ? '+' : ''}{data.trendPct}% over 5 days).
+          Strikes rounded to nearest 50. Verify live bid/ask before placing.
         </p>
         <div className="an-strategies">
           {data.strategies.map((s, i) => {
@@ -173,9 +212,7 @@ export default function NiftyAnalysis() {
                     <span className={`an-side-badge ${side.cls}`}>{side.label}</span>
                   </div>
                 </div>
-                {s.strikes && (
-                  <div className="an-strikes">{s.strikes}</div>
-                )}
+                {s.strikes && <div className="an-strikes">{s.strikes}</div>}
                 <div className="an-strategy-desc">{s.description}</div>
               </div>
             );
@@ -184,8 +221,8 @@ export default function NiftyAnalysis() {
       </div>
 
       <div className="an-disclaimer">
-        This analysis is based on historical price data only and does not constitute financial advice.
-        Always assess live IV, market conditions, and your own risk tolerance before trading.
+        This analysis uses India VIX and historical price data only. It does not constitute financial advice.
+        Always assess current market conditions and your own risk tolerance before trading.
       </div>
     </div>
   );
