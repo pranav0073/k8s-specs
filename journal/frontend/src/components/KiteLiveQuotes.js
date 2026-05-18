@@ -93,8 +93,9 @@ export default function KiteLiveQuotes({ tradeId }) {
     }
   };
 
-  const fmt = v => v != null ? Number(v).toFixed(v < 1 && v > -1 ? 4 : 2) : '—';
+  const fmt   = v => v != null ? Number(v).toFixed(v < 1 && v > -1 ? 4 : 2) : '—';
   const fmtRs = v => v != null ? `₹${Number(v).toFixed(2)}` : '—';
+  const fmtIv = v => v != null ? `${(Number(v) * 100).toFixed(2)}%` : '—';
 
   const netPnl = quotes
     ? quotes.reduce((sum, leg) => sum + (leg.pnl ?? 0), 0)
@@ -201,7 +202,7 @@ export default function KiteLiveQuotes({ tradeId }) {
                       color: q?.change > 0 ? '#16a34a' : q?.change < 0 ? '#dc2626' : '#6b7280' }}>
                       {q?.change != null ? `${q.change > 0 ? '+' : ''}${Number(q.change).toFixed(2)}` : '—'}
                     </td>
-                    <td style={{ padding:'8px 8px', textAlign:'right' }}>{q ? fmt(q.iv) : '—'}</td>
+                    <td style={{ padding:'8px 8px', textAlign:'right' }}>{q ? fmtIv(q.iv) : '—'}</td>
                     <td style={{ padding:'8px 8px', textAlign:'right' }}>{q ? fmt(q.delta) : '—'}</td>
                     <td style={{ padding:'8px 8px', textAlign:'right', color:'#dc2626' }}>{q ? fmt(q.theta) : '—'}</td>
                     <td style={{ padding:'8px 8px', textAlign:'right' }}>{q ? fmt(q.gamma) : '—'}</td>

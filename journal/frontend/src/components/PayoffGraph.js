@@ -192,7 +192,7 @@ export default function PayoffGraph({ trade }) {
       }
       if (!s && analysis.status === 'fulfilled') s = analysis.value.data?.currentClose ?? null;
       if (s && isFinite(s))  setSpot(s);
-      if (iv && isFinite(iv)) setIvPct(+(iv * 100).toFixed(1));
+      if (iv && isFinite(iv)) setIvPct(+(iv * 100).toFixed(2));
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [trade?.id]); // eslint-disable-line
@@ -386,11 +386,15 @@ export default function PayoffGraph({ trade }) {
 
             {/* IV slider */}
             <div>
-              <div style={{ fontSize:12, fontWeight:600, marginBottom:6, display:'flex', justifyContent:'space-between' }}>
+              <div style={{ fontSize:12, fontWeight:600, marginBottom:6, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <span style={{ color:'#6b7280' }}>IV</span>
-                <span style={{ color:'#0d0d0d' }}>{ivPct}%</span>
+                <input
+                  type="number" min={5} max={80} step={0.01} value={ivPct}
+                  onChange={e => setIvPct(Math.min(80, Math.max(5, Number(e.target.value))))}
+                  style={{ width:60, fontSize:12, fontWeight:700, textAlign:'right', border:'1px solid #e5e5e5', borderRadius:4, padding:'1px 4px' }}
+                />
               </div>
-              <input type="range" min={5} max={80} step={0.5} value={ivPct}
+              <input type="range" min={5} max={80} step={0.1} value={ivPct}
                 onChange={e => setIvPct(Number(e.target.value))} style={{ width:'100%', accentColor:'#7c3aed' }} />
               <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:'#9ca3af', marginTop:2 }}>
                 <span>5%</span><span>80%</span>
