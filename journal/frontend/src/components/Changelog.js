@@ -6,6 +6,17 @@ import React, { useState } from 'react';
 
 const RELEASES = [
   {
+    date: '2026-05-18',
+    entries: [
+      {
+        type: 'feature',
+        title: 'Import today\'s trades from Zerodha Kite API',
+        description:
+          'A new "⚡ Import from Kite" button on the Trades page fetches today\'s executed NFO option trades directly from your Zerodha account via the Kite Connect API. Weighted-average entry and exit price is computed per contract, and previously imported trades are detected automatically using stored Kite trade IDs — re-fetching the same day never creates duplicates.',
+      },
+    ],
+  },
+  {
     date: '2026-05-15',
     entries: [
       {

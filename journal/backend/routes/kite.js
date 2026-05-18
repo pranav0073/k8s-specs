@@ -349,4 +349,155 @@ router.get('/open-pnl', (req, res) => {
   }
 });
 
+// Symbol parsing for Kite tradingsymbols (mirrors ImportModal.js logic)
+const KITE_WEEKLY_RE  = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)(\d{2})([1-9ONDS])(\d{2})(\d+)(CE|PE)$/i;
+const KITE_MONTHLY_RE = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d+)(CE|PE)$/i;
+const KITE_MON_CODES  = { '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,O:10,N:11,D:12 };
+const KITE_MON_NAMES  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function parseKiteSymbol(name) {
+  const upper = name.toUpperCase();
+  const w = KITE_WEEKLY_RE.exec(upper);
+  if (w) {
+    const [, index, , monCode, dd, strikeStr, optType] = w;
+    const mon = KITE_MON_CODES[monCode.toUpperCase()];
+    if (!mon) return null;
+    return { index, expiry: `${parseInt(dd, 10)} ${KITE_MON_NAMES[mon - 1]}`, strike: parseInt(strikeStr, 10), optType };
+  }
+  const mo = KITE_MONTHLY_RE.exec(upper);
+  if (mo) {
+    const [, index, yy, monStr, strikeStr, optType] = mo;
+    const monIdx = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].indexOf(monStr.toUpperCase());
+    if (monIdx === -1) return null;
+    return { index, expiry: `${KITE_MON_NAMES[monIdx]} '${yy}`, strike: parseInt(strikeStr, 10), optType };
+  }
+  return null;
+}
+
+const KITE_LOT_SIZE = 65;
+
+// GET /api/kite/fetch-trades — fetch today's executed NFO trades from Kite
+router.get('/fetch-trades', async (req, res) => {
+  try {
+    const cfg   = getConfig();
+    const today = new Date().toISOString().split('T')[0];
+    if (!cfg.access_token || cfg.token_date !== today) {
+      return res.status(401).json({ error: 'Kite not authenticated for today. Please reconnect.' });
+    }
+
+    const r = await fetch(`${KITE_BASE}/trades`, {
+      headers: { 'X-Kite-Version': '3', 'Authorization': `token ${cfg.api_key}:${cfg.access_token}` },
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.message || 'Kite API error' });
+
+    // Filter only NFO options
+    const fills = (data.data || []).filter(t =>
+      t.exchange === 'NFO' && /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY)/i.test(t.tradingsymbol)
+    );
+
+    // Group by tradingsymbol; preserve insertion order for opening-side detection
+    const bySymbol = {};
+    for (const fill of fills) {
+      const sym = fill.tradingsymbol.toUpperCase();
+      if (!bySymbol[sym]) bySymbol[sym] = { buys: [], sells: [], tradeIds: [], firstType: fill.transaction_type };
+      bySymbol[sym].tradeIds.push(String(fill.trade_id));
+      if (fill.transaction_type === 'BUY') {
+        bySymbol[sym].buys.push({ qty: fill.quantity, price: fill.price });
+      } else {
+        bySymbol[sym].sells.push({ qty: fill.quantity, price: fill.price });
+      }
+    }
+
+    // Load all already-imported Kite trade IDs
+    const existingRows = db.prepare(
+      "SELECT kite_trade_ids FROM trades WHERE kite_trade_ids IS NOT NULL AND kite_trade_ids != ''"
+    ).all();
+    const importedIds = new Set();
+    for (const row of existingRows) {
+      (row.kite_trade_ids || '').split(',').filter(Boolean).forEach(id => importedIds.add(id));
+    }
+
+    const legs = [];
+    for (const [sym, group] of Object.entries(bySymbol)) {
+      const parsed = parseKiteSymbol(sym);
+      if (!parsed) continue;
+
+      const totalBuyQty  = group.buys.reduce((s, x) => s + x.qty, 0);
+      const totalSellQty = group.sells.reduce((s, x) => s + x.qty, 0);
+      const buyAvg  = totalBuyQty  > 0 ? group.buys.reduce((s, x) => s + x.qty * x.price, 0) / totalBuyQty  : null;
+      const sellAvg = totalSellQty > 0 ? group.sells.reduce((s, x) => s + x.qty * x.price, 0) / totalSellQty : null;
+
+      const side       = group.firstType === 'BUY' ? 'B' : 'S';
+      const totalQty   = Math.max(totalBuyQty, totalSellQty);
+      const lots       = Math.round(totalQty / KITE_LOT_SIZE);
+      const closed     = totalBuyQty === totalSellQty;
+      const entryPrice = side === 'B' ? buyAvg : sellAvg;
+      const exitPrice  = closed ? (side === 'B' ? sellAvg : buyAvg) : null;
+
+      legs.push({
+        instrumentName: sym,
+        parsed,
+        side,
+        lots,
+        entryPrice: Math.round(entryPrice * 100) / 100,
+        exitPrice:  exitPrice != null ? Math.round(exitPrice * 100) / 100 : null,
+        closed,
+        totalBuyQty,
+        totalSellQty,
+        tradeIds: group.tradeIds,
+        alreadyImported: group.tradeIds.some(id => importedIds.has(id)),
+      });
+    }
+
+    res.json({ date: today, legs });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// POST /api/kite/import-kite-trades — create trade records from fetched Kite fills
+router.post('/import-kite-trades', (req, res) => {
+  try {
+    const { date, legs } = req.body;
+    if (!date || !Array.isArray(legs) || !legs.length) {
+      return res.status(400).json({ error: 'date and legs required' });
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO trades (date, instrument, legs, status, close_date, notes, kite_trade_ids)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let count = 0;
+    for (const leg of legs) {
+      const tradeLeg = {
+        side:        leg.side,
+        lots:        leg.lots,
+        strike:      leg.parsed.strike,
+        type:        leg.parsed.optType,
+        expiry:      leg.parsed.expiry,
+        entry_price: leg.entryPrice,
+        exit_price:  leg.exitPrice,
+      };
+      const entryAvg = leg.side === 'B' ? leg.entryPrice : (leg.exitPrice ?? '—');
+      const exitAvg  = leg.side === 'S' ? leg.entryPrice : (leg.exitPrice ?? '—');
+      stmt.run(
+        date,
+        leg.parsed.index,
+        JSON.stringify([tradeLeg]),
+        leg.closed ? 'closed' : 'open',
+        leg.closed ? date : null,
+        `Imported from Kite: ${leg.totalBuyQty} qty bought @ avg ₹${entryAvg}, ${leg.totalSellQty} qty sold @ avg ₹${exitAvg}`,
+        leg.tradeIds.join(',')
+      );
+      count++;
+    }
+
+    res.json({ imported: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

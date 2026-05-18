@@ -20,9 +20,10 @@ db.exec(`
 
 // Migration: add columns to trades if absent
 const tradeCols = db.prepare('PRAGMA table_info(trades)').all();
-if (!tradeCols.find(c => c.name === 'close_date'))   db.exec('ALTER TABLE trades ADD COLUMN close_date TEXT');
-if (!tradeCols.find(c => c.name === 'exit_plan'))     db.exec('ALTER TABLE trades ADD COLUMN exit_plan TEXT');
-if (!tradeCols.find(c => c.name === 'exit_plan_at'))  db.exec('ALTER TABLE trades ADD COLUMN exit_plan_at TEXT');
+if (!tradeCols.find(c => c.name === 'close_date'))      db.exec('ALTER TABLE trades ADD COLUMN close_date TEXT');
+if (!tradeCols.find(c => c.name === 'exit_plan'))        db.exec('ALTER TABLE trades ADD COLUMN exit_plan TEXT');
+if (!tradeCols.find(c => c.name === 'exit_plan_at'))     db.exec('ALTER TABLE trades ADD COLUMN exit_plan_at TEXT');
+if (!tradeCols.find(c => c.name === 'kite_trade_ids'))   db.exec('ALTER TABLE trades ADD COLUMN kite_trade_ids TEXT');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS market_sessions (

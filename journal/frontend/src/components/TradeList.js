@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import ImportModal from './ImportModal';
+import KiteImportModal from './KiteImportModal';
 import KiteLiveQuotes from './KiteLiveQuotes';
 import PayoffGraph from './PayoffGraph';
 
@@ -335,8 +336,9 @@ export default function TradeList() {
   const [filters,     setFilters]     = useState(EMPTY_FILTERS);
   const [loading,     setLoading]     = useState(true);
   const [expandedId,  setExpandedId]  = useState(null);
-  const [showImport,  setShowImport]  = useState(false);
-  const [importToast, setImportToast] = useState('');
+  const [showImport,     setShowImport]     = useState(false);
+  const [showKiteImport, setShowKiteImport] = useState(false);
+  const [importToast,    setImportToast]    = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [deleting,    setDeleting]    = useState(false);
   const [showMerge,   setShowMerge]   = useState(false);
@@ -435,6 +437,7 @@ export default function TradeList() {
             </>
           ) : (
             <>
+              <button className="btn" onClick={() => setShowKiteImport(true)}>⚡ Import from Kite</button>
               <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
               <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
             </>
@@ -548,6 +551,13 @@ export default function TradeList() {
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}
+          onImported={handleImported}
+        />
+      )}
+
+      {showKiteImport && (
+        <KiteImportModal
+          onClose={() => setShowKiteImport(false)}
           onImported={handleImported}
         />
       )}
