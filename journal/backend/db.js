@@ -20,9 +20,10 @@ db.exec(`
 
 // Migration: add columns to trades if absent
 const tradeCols = db.prepare('PRAGMA table_info(trades)').all();
-if (!tradeCols.find(c => c.name === 'close_date'))   db.exec('ALTER TABLE trades ADD COLUMN close_date TEXT');
-if (!tradeCols.find(c => c.name === 'exit_plan'))     db.exec('ALTER TABLE trades ADD COLUMN exit_plan TEXT');
-if (!tradeCols.find(c => c.name === 'exit_plan_at'))  db.exec('ALTER TABLE trades ADD COLUMN exit_plan_at TEXT');
+if (!tradeCols.find(c => c.name === 'close_date'))      db.exec('ALTER TABLE trades ADD COLUMN close_date TEXT');
+if (!tradeCols.find(c => c.name === 'exit_plan'))        db.exec('ALTER TABLE trades ADD COLUMN exit_plan TEXT');
+if (!tradeCols.find(c => c.name === 'exit_plan_at'))     db.exec('ALTER TABLE trades ADD COLUMN exit_plan_at TEXT');
+if (!tradeCols.find(c => c.name === 'kite_trade_ids'))   db.exec('ALTER TABLE trades ADD COLUMN kite_trade_ids TEXT');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS market_sessions (
@@ -86,6 +87,34 @@ db.exec(`
     other            REAL NOT NULL DEFAULT 0,
     notes            TEXT,
     created_at       TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kite_config (
+    id           INTEGER PRIMARY KEY,
+    api_key      TEXT,
+    api_secret   TEXT,
+    access_token TEXT,
+    token_date   TEXT
+  )
+`);
+const hasKiteRow = db.prepare('SELECT id FROM kite_config WHERE id = 1').get();
+if (!hasKiteRow) db.prepare('INSERT INTO kite_config (id) VALUES (1)').run();
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS kite_quotes (
+    symbol     TEXT PRIMARY KEY,
+    ltp        REAL,
+    change_val REAL,
+    iv         REAL,
+    delta      REAL,
+    theta      REAL,
+    gamma      REAL,
+    vega       REAL,
+    oi         REAL,
+    nifty_spot REAL,
+    updated_at TEXT
   )
 `);
 

@@ -6,6 +6,58 @@ import React, { useState } from 'react';
 
 const RELEASES = [
   {
+    date: '2026-05-18',
+    entries: [
+      {
+        type: 'feature',
+        title: 'Import today\'s trades from Zerodha Kite API',
+        description:
+          'A new "⚡ Import from Kite" button on the Trades page fetches today\'s executed NFO option trades directly from your Zerodha account via the Kite Connect API. Weighted-average entry and exit price is computed per contract, and previously imported trades are detected automatically using stored Kite trade IDs — re-fetching the same day never creates duplicates.',
+      },
+    ],
+  },
+  {
+    date: '2026-05-15',
+    entries: [
+      {
+        type: 'feature',
+        title: 'Persisted live quotes — instant cached load',
+        description:
+          'LTP and Greeks are saved to the database after every Kite refresh. Re-opening a trade instantly shows the last fetched data with a "Last refreshed: X min ago" label — no need to hit Kite again.',
+      },
+      {
+        type: 'feature',
+        title: 'Per-leg P&L and Net P&L in Live Market Data',
+        description:
+          'The Live Market Data table now has a P&L column showing running profit or loss per leg based on LTP vs entry price (lot size 65). A Net P&L summary row shows the combined position P&L.',
+      },
+      {
+        type: 'feature',
+        title: '⚡ Live P&L column on Trades list',
+        description:
+          'Open trades on the Trades page show a Live P&L column using the most recently stored Kite quote data — green for profit, red for loss — without navigating into the trade.',
+      },
+      {
+        type: 'feature',
+        title: 'Live quotes and payoff graph in inline trade panel',
+        description:
+          'Live Market Data and the Payoff Graph now appear directly inside the inline row expansion on the Trades list. No need to open the full trade detail page.',
+      },
+      {
+        type: 'feature',
+        title: 'Payoff graph — spot vs P&L with DTE and IV sliders',
+        description:
+          'A Payoff Graph section appears on every trade detail page. X-axis is NIFTY spot price, Y-axis is theoretical net P&L. A DTE slider shows theta decay over time; an IV slider models vol scenarios. Expiry payoff (gray dashed) and selected-DTE payoff (blue) are shown with breakeven markers.',
+      },
+      {
+        type: 'feature',
+        title: 'Zerodha Kite Connect — live LTP and Greeks',
+        description:
+          'Connect your Kite API key and secret to fetch live LTP, IV, Delta, Theta, Gamma, Vega, and OI for all open trade legs. IV is solved via Newton-Raphson from live NIFTY spot; Greeks computed from Black-Scholes. OAuth popup login — token valid until midnight.',
+      },
+    ],
+  },
+  {
     date: '2026-05-14',
     entries: [
       {

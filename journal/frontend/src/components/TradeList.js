@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import ImportModal from './ImportModal';
+import KiteImportModal from './KiteImportModal';
+import KiteLiveQuotes from './KiteLiveQuotes';
+import PayoffGraph from './PayoffGraph';
 
 const LOT_SIZE = 65;
 const EMPTY_FILTERS = { instrument: '', strategy: '', status: 'open', from: '', to: '' };
@@ -333,22 +336,30 @@ export default function TradeList() {
   const [filters,     setFilters]     = useState(EMPTY_FILTERS);
   const [loading,     setLoading]     = useState(true);
   const [expandedId,  setExpandedId]  = useState(null);
-  const [showImport,  setShowImport]  = useState(false);
-  const [importToast, setImportToast] = useState('');
+  const [showImport,     setShowImport]     = useState(false);
+  const [showKiteImport, setShowKiteImport] = useState(false);
+  const [importToast,    setImportToast]    = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [deleting,    setDeleting]    = useState(false);
   const [showMerge,   setShowMerge]   = useState(false);
+  const [livePnl,     setLivePnl]     = useState({});
   const navigate = useNavigate();
+
+  const fetchLivePnl = useCallback(() => {
+    axios.get('/api/kite/open-pnl')
+      .then(r => setLivePnl(r.data))
+      .catch(() => {});
+  }, []);
 
   const fetchTrades = useCallback(() => {
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
     setLoading(true);
     axios.get('/api/trades', { params })
-      .then(r => { setTrades(r.data); setLoading(false); })
+      .then(r => { setTrades(r.data); setLoading(false); fetchLivePnl(); })
       .catch(() => setLoading(false));
-  }, [filters]);
+  }, [filters, fetchLivePnl]);
 
-  useEffect(() => { fetchTrades(); }, []); // eslint-disable-line
+  useEffect(() => { fetchTrades(); fetchLivePnl(); }, []); // eslint-disable-line
 
   const handleRowClick = (id) => {
     if (selectedIds.size > 0) return; // in select mode, row click is handled by checkbox
@@ -426,6 +437,7 @@ export default function TradeList() {
             </>
           ) : (
             <>
+              <button className="btn" onClick={() => setShowKiteImport(true)}>⚡ Import from Kite</button>
               <button className="btn" onClick={() => setShowImport(true)}>Import CSV</button>
               <button className="btn btn-primary" onClick={() => navigate('/trades/new')}>+ Add Trade</button>
             </>
@@ -474,6 +486,7 @@ export default function TradeList() {
               <th>Legs</th>
               <th style={{ textAlign: 'right' }}>Net Premium</th>
               <th style={{ textAlign: 'right' }}>P&amp;L</th>
+              <th style={{ textAlign: 'right' }}>Live P&amp;L</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -504,18 +517,26 @@ export default function TradeList() {
                     <td style={{ textAlign: 'right' }} className={t.pnl == null ? '' : t.pnl >= 0 ? 'pnl-green' : 'pnl-red'}>
                       {t.pnl == null ? '—' : `${t.pnl >= 0 ? '+' : ''}₹${Math.abs(t.pnl).toLocaleString('en-IN')}`}
                     </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600,
+                      color: livePnl[t.id] == null ? undefined : livePnl[t.id].pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {t.status === 'open' && livePnl[t.id] != null
+                        ? `⚡ ${livePnl[t.id].pnl >= 0 ? '+' : ''}₹${Math.round(livePnl[t.id].pnl).toLocaleString('en-IN')}`
+                        : ''}
+                    </td>
                     <td><span className={`status-badge ${t.status}`}>{t.status}</span></td>
                   </tr>
 
                   {isExpanded && (
                     <tr className="edit-row">
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <EditPanel
                           trade={t}
                           onSave={payload => handleSave(t.id, payload)}
                           onDelete={() => handleDelete(t.id)}
                           onCancel={() => setExpandedId(null)}
                         />
+                        {t.status === 'open' && <KiteLiveQuotes tradeId={t.id} />}
+                        <PayoffGraph trade={t} />
                       </td>
                     </tr>
                   )}
@@ -530,6 +551,13 @@ export default function TradeList() {
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}
+          onImported={handleImported}
+        />
+      )}
+
+      {showKiteImport && (
+        <KiteImportModal
+          onClose={() => setShowKiteImport(false)}
           onImported={handleImported}
         />
       )}
