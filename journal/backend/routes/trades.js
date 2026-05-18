@@ -250,13 +250,13 @@ router.get('/:id', (req, res) => {
 
 // POST /api/trades
 router.post('/', (req, res) => {
-  const { date, instrument, strategy, legs, status, notes, tags, close_date } = req.body;
+  const { date, instrument, strategy, legs, status, notes, tags, close_date, kite_trade_ids } = req.body;
   if (!date || !Array.isArray(legs) || legs.length === 0) {
     return res.status(400).json({ error: 'date and legs[] are required' });
   }
   const result = db.prepare(`
-    INSERT INTO trades (date, instrument, strategy, legs, status, notes, tags, close_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO trades (date, instrument, strategy, legs, status, notes, tags, close_date, kite_trade_ids)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     date,
     (instrument || 'NIFTY').toUpperCase(),
@@ -265,7 +265,8 @@ router.post('/', (req, res) => {
     status || 'open',
     notes || null,
     JSON.stringify(tags || []),
-    close_date || null
+    close_date || null,
+    kite_trade_ids || null
   );
   res.status(201).json(parseTrade(db.prepare('SELECT * FROM trades WHERE id = ?').get(Number(result.lastInsertRowid))));
 });
