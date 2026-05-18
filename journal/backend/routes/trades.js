@@ -591,8 +591,20 @@ router.post('/:id/exit-plan', async (req, res) => {
   // Breakeven
   let breakeven = null;
   const legType = buyLegs[0]?.type;
+  const isCE = legType === 'CE';
+  const isPE = legType === 'PE';
+  // Net delta sign: positive = bullish bias, negative = bearish bias
+  const netDeltaSign = legs.reduce((s, l) => {
+    const dir = l.side === 'B' ? 1 : -1;
+    const dSign = l.type === 'CE' ? 1 : -1;
+    return s + dir * dSign * (l.lots || 1);
+  }, 0);
+  const positionBias = netDeltaSign > 0 ? 'BULLISH (net long delta — profits when NIFTY rises)'
+    : netDeltaSign < 0 ? 'BEARISH (net short delta — profits when NIFTY falls)'
+    : 'NEUTRAL';
+
   if (longStrike && netPerUnit != null) {
-    breakeven = legType === 'CE'
+    breakeven = isCE
       ? Math.round(longStrike + Math.abs(netPerUnit))
       : Math.round(longStrike - Math.abs(netPerUnit));
   }
@@ -669,7 +681,8 @@ TRADE:
   Strategy:    ${trade.strategy || 'Options Trade'}
   Entry Date:  ${trade.date}
   Status:      ${trade.status}
-  Structure:   ${isDebit ? 'DEBIT spread (premium paid — theta works AGAINST this position)' : 'CREDIT spread (premium received — theta works FOR this position)'}
+  Structure:   ${isDebit ? 'DEBIT (premium paid — theta works AGAINST this position)' : 'CREDIT (premium received — theta works FOR this position)'}
+  Position bias: ${positionBias}
   Net premium: ${isDebit ? 'Paid' : 'Received'} ₹${Math.abs(netPremiumRs).toFixed(0)} total
   Legs:
 ${legsText}
@@ -681,14 +694,19 @@ PRE-COMPUTED TRADE MECHANICS — use ONLY these figures, do NOT recalculate:
   Long strike:   ${longStrike ?? '—'}  (${legType === 'CE' ? 'Call' : 'Put'})
   Short strike:  ${shortStrike ?? '—'}
   Spread width:  ${spreadWidth ?? '—'} pts
-  Breakeven:     ${breakeven ?? '—'} (NIFTY must be ${legType === 'CE' ? 'above' : 'below'} this at expiry to profit)
-  Max loss:      ₹${maxLossRs} (premium paid — full loss if NIFTY below long strike at expiry)
-  Max profit:    ₹${maxProfitRs ?? '—'} (if NIFTY at/above short strike at expiry)
+  Breakeven:     ${breakeven ?? '—'} (NIFTY must be ${isPE ? 'BELOW' : 'ABOVE'} this at expiry to profit — this is a ${isPE ? 'PUT' : 'CALL'}-based position)
+  Max loss:      ₹${maxLossRs} (full loss if NIFTY ${isPE ? 'above' : 'below'} long strike at expiry — options expire worthless)
+  Max profit:    ₹${maxProfitRs ?? '—'} (if NIFTY ${isPE ? 'at/below short strike' : 'at/above short strike'} at expiry)
   ROI at max profit: ${roiPct ?? '—'}%
   NIFTY spot now: ${spot?.toFixed(2) ?? 'unavailable'}
   Spot vs long strike:  ${spotVsLong != null ? (Number(spotVsLong) >= 0 ? '+' : '') + spotVsLong + ' pts (' + (Number(spotVsLong) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
   Spot vs short strike: ${spotVsShort != null ? (Number(spotVsShort) >= 0 ? '+' : '') + spotVsShort + ' pts (' + (Number(spotVsShort) >= 0 ? 'ABOVE' : 'BELOW') + ')' : '—'}
-  Spot vs breakeven:    ${spotVsBE != null ? (Number(spotVsBE) >= 0 ? '+' : '') + spotVsBE + ' pts (' + (Number(spotVsBE) >= 0 ? 'ABOVE — trade profitable at expiry' : 'BELOW — trade losing at expiry') + ')' : '—'}
+  Spot vs breakeven:    ${(() => {
+    if (spotVsBE == null) return '—';
+    const isAbove = Number(spotVsBE) >= 0;
+    const profitable = isPE ? !isAbove : isAbove;
+    return (isAbove ? '+' : '') + spotVsBE + ' pts (' + (isAbove ? 'ABOVE' : 'BELOW') + ' — trade ' + (profitable ? 'PROFITABLE' : 'LOSING') + ' at expiry)';
+  })()}
   NIFTY move since entry: ${niftyMovePct != null ? (Number(niftyMovePct) >= 0 ? '+' : '') + niftyMovePct + '%' : '—'}
 
 GREEKS & OPTION VALUE (Black-Scholes, IV = ${(iv * 100).toFixed(1)}% = ${vix?.latest ? 'live VIX' : 'HV10 fallback'}):
