@@ -403,9 +403,9 @@ router.get('/fetch-trades', async (req, res) => {
       if (!bySymbol[sym]) bySymbol[sym] = { buys: [], sells: [], tradeIds: [], firstType: fill.transaction_type };
       bySymbol[sym].tradeIds.push(String(fill.trade_id));
       if (fill.transaction_type === 'BUY') {
-        bySymbol[sym].buys.push({ qty: fill.quantity, price: fill.price });
+        bySymbol[sym].buys.push({ qty: fill.quantity, price: fill.average_price });
       } else {
-        bySymbol[sym].sells.push({ qty: fill.quantity, price: fill.price });
+        bySymbol[sym].sells.push({ qty: fill.quantity, price: fill.average_price });
       }
     }
 

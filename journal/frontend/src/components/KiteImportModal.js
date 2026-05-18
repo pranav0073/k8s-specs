@@ -152,7 +152,7 @@ export default function KiteImportModal({ onClose, onImported }) {
                               </span>
                             </td>
                             <td>{leg.lots}L</td>
-                            <td>₹{leg.entryPrice.toFixed(2)}</td>
+                            <td>{leg.entryPrice != null ? `₹${leg.entryPrice.toFixed(2)}` : '—'}</td>
                             <td>{leg.exitPrice != null ? `₹${leg.exitPrice.toFixed(2)}` : '—'}</td>
                             <td className={pnl == null ? '' : pnl >= 0 ? 'pnl-green' : 'pnl-red'}>
                               {pnl != null ? `${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(0)}` : '—'}
