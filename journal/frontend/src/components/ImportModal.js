@@ -145,7 +145,7 @@ function processTradebook(text) {
     legs.push({
       tradeDate:  g.firstDate,
       closeDate:  closed && g.lastDate !== g.firstDate ? g.lastDate : (closed ? g.firstDate : null),
-      instrumentName: sym,
+      instrumentName: `${parsed.index}${parsed.strike}${parsed.optType}`,
       parsed,
       side,
       lots,
