@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
-import {
-  ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell, ReferenceLine,
-} from 'recharts';
 
 const AI_SECTION_META = {
   'Market Outlook':      { icon: '📊', cls: 'ep-outlook',  label: 'Market Outlook' },
@@ -24,98 +20,7 @@ function parseAiSections(text) {
   });
 }
 
-// ── Candlestick chart ─────────────────────────────────────────────────────────
-function CandleTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  if (!d) return null;
-  const bull = d.close >= d.open;
-  return (
-    <div style={{
-      background: '#1a1a1a', border: '1px solid #333', borderRadius: 6,
-      padding: '8px 12px', fontSize: 12, color: '#e5e5e5', lineHeight: 1.7,
-    }}>
-      <div style={{ fontWeight: 700, marginBottom: 4, color: '#fff' }}>{d.date}</div>
-      <div>O <strong>{d.open?.toFixed(2)}</strong></div>
-      <div>H <strong style={{ color: '#4ade80' }}>{d.high?.toFixed(2)}</strong></div>
-      <div>L <strong style={{ color: '#f87171' }}>{d.low?.toFixed(2)}</strong></div>
-      <div>C <strong style={{ color: bull ? '#4ade80' : '#f87171' }}>{d.close?.toFixed(2)}</strong></div>
-      <div style={{ color: bull ? '#4ade80' : '#f87171', marginTop: 2 }}>
-        {bull ? '▲' : '▼'} {Math.abs(d.close - d.open).toFixed(2)} ({Math.abs((d.close - d.open) / d.open * 100).toFixed(2)}%)
-      </div>
-    </div>
-  );
-}
-
-function CandlestickChart({ candles }) {
-  if (!candles || candles.length === 0) return null;
-
-  // Transform for Recharts: each candle needs [bodyLow, bodyHigh] as a bar,
-  // plus separate thin bars for upper/lower wicks.
-  const data = candles.map(c => {
-    const bull     = c.close >= c.open;
-    const bodyLow  = Math.min(c.open, c.close);
-    const bodyHigh = Math.max(c.open, c.close);
-    return {
-      ...c,
-      bull,
-      // Bar stacking: [gap from 0 to bodyLow] + [body height]
-      bodyBase:   bodyLow,
-      bodySize:   bodyHigh - bodyLow || 1, // min 1pt so flat candles show
-      upperWick:  c.high - bodyHigh,
-      lowerWick:  bodyLow - c.low,
-      wickBase:   c.low,
-      wickSize:   c.high - c.low,
-      label:      c.date.slice(5), // "MM-DD"
-    };
-  });
-
-  const allPrices = candles.flatMap(c => [c.high, c.low]);
-  const minP = Math.floor(Math.min(...allPrices) / 50) * 50;
-  const maxP = Math.ceil(Math.max(...allPrices) / 50) * 50;
-
-  return (
-    <div style={{ width: '100%', height: 220 }}>
-      <ResponsiveContainer>
-        <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis domain={[minP, maxP]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
-            tickFormatter={v => v.toLocaleString('en-IN')} width={58} />
-          <Tooltip content={<CandleTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-
-          {/* Full wick — thin transparent bar so tooltip works on full height */}
-          <Bar dataKey="wickSize" stackId="c" bottomValue="wickBase" fill="transparent" stroke="none" isAnimationActive={false}>
-            {data.map((d, i) => (
-              <Cell key={i} fill="transparent" />
-            ))}
-          </Bar>
-
-          {/* Lower wick line — invisible bar placeholder */}
-          <Bar dataKey="lowerWick" stackId="w" bottomValue="wickBase" barSize={2} isAnimationActive={false} radius={0}>
-            {data.map((d, i) => (
-              <Cell key={i} fill={d.bull ? '#16a34a' : '#dc2626'} />
-            ))}
-          </Bar>
-
-          {/* Gap bar (transparent, from 0 to bodyBase) */}
-          <Bar dataKey="bodyBase" stackId="b" fill="transparent" stroke="none" isAnimationActive={false} />
-
-          {/* Candle body */}
-          <Bar dataKey="bodySize" stackId="b" barSize={14} isAnimationActive={false} radius={[1,1,1,1]}>
-            {data.map((d, i) => (
-              <Cell key={i} fill={d.bull ? '#16a34a' : '#dc2626'}
-                fillOpacity={d.bull ? 0.85 : 0.9}
-                stroke={d.bull ? '#15803d' : '#b91c1c'} strokeWidth={1} />
-            ))}
-          </Bar>
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function AiAnalysisPanel({ candles }) {
+function AiAnalysisPanel() {
   const [analysis,    setAnalysis]    = useState(null);
   const [generatedAt, setGeneratedAt] = useState(null);
   const [loading,     setLoading]     = useState(false);
@@ -188,14 +93,6 @@ function AiAnalysisPanel({ candles }) {
                 <span className="ep-section-icon">{sec.meta.icon}</span>
                 {sec.meta.label}
               </div>
-              {sec.title === 'Market Outlook' && candles?.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 600 }}>
-                    NIFTY — last {candles.length} sessions (daily)
-                  </div>
-                  <CandlestickChart candles={candles} />
-                </div>
-              )}
               <div className="ep-section-body ep-md">
                 <ReactMarkdown>{sec.body}</ReactMarkdown>
               </div>
@@ -433,7 +330,7 @@ export default function NiftyAnalysis() {
       </div>
 
       {/* ── AI-powered analysis panel ────────────────────────────── */}
-      <AiAnalysisPanel candles={data.candles} />
+      <AiAnalysisPanel />
 
       <div className="an-disclaimer">
         Rule-based signals use India VIX and historical price data only. AI analysis additionally uses live global markets.

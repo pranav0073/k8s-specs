@@ -467,13 +467,6 @@ router.get('/analysis', async (req, res) => {
     weeklyRanges,
     strategies,
     dataPoints:    rows.length,
-    candles:       rows.slice(-10).map(r => ({
-      date:  r.date,
-      open:  r.open,
-      high:  r.high,
-      low:   r.low,
-      close: r.close,
-    })),
   });
 });
 
