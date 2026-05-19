@@ -16,13 +16,10 @@ function lastTuesdayOfMonth(year, mon) {
 }
 
 function expiryFromDate(dateStr) {
-  // dateStr: "YYYY-MM-DD" → "12 May" or "May '26"
+  // Always return "DD Mon" format (e.g. "30 Jun") — consistent with weekly contracts
   if (!dateStr) return null;
   const [y, m, d] = dateStr.split('-').map(Number);
-  const mon = m - 1; // 0-indexed
-  const lastTues = lastTuesdayOfMonth(y, mon);
-  if (lastTues.getDate() === d) return `${MONTH_NAMES[mon]} '${String(y).slice(2)}`;
-  return `${d} ${MONTH_NAMES[mon]}`;
+  return `${d} ${MONTH_NAMES[m - 1]}`;
 }
 
 function parseInstrumentName(name) {
@@ -39,7 +36,10 @@ function parseInstrumentName(name) {
     const [, index, yy, monStr, strikeStr, optType] = mo;
     const monIdx = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].indexOf(monStr.toUpperCase());
     if (monIdx === -1) return null;
-    return { index, expiry: `${MONTH_NAMES[monIdx]} '${yy}`, strike: parseInt(strikeStr, 10), optType };
+    // Compute actual last-Tuesday date so format matches weekly contracts ("30 Jun" not "Jun '26")
+    const year     = 2000 + parseInt(yy, 10);
+    const lastTues = lastTuesdayOfMonth(year, monIdx);
+    return { index, expiry: `${lastTues.getDate()} ${MONTH_NAMES[monIdx]}`, strike: parseInt(strikeStr, 10), optType };
   }
   return null;
 }
@@ -97,18 +97,28 @@ function processTradebook(text) {
 
   if (rawRows.length === 0) return null;
 
-  // Group by symbol (across all dates) — treat as single trade per contract
-  // Use first execution date as entry date, last as close date
-  const bySymbol = {};
+  // Group by NORMALIZED key (index-strike-optType-expiry) so that
+  // NIFTY26JUN23650PE and NIFTY2663023650PE (same contract, two formats)
+  // collapse into one entry.
+  const byKey = {};
   for (const row of rawRows) {
-    if (!bySymbol[row.symbol]) {
-      bySymbol[row.symbol] = {
+    const parsed = parseInstrumentName(row.symbol);
+    if (!parsed) continue;
+    // Always derive expiry from expiry_date column for canonical "DD Mon" format
+    if (row.expiry_date) {
+      const fromDate = expiryFromDate(row.expiry_date);
+      if (fromDate) parsed.expiry = fromDate;
+    }
+    const key = `${parsed.index}-${parsed.strike}-${parsed.optType}-${parsed.expiry}`;
+    if (!byKey[key]) {
+      byKey[key] = {
+        parsed,
         buys: [], sells: [], tradeIds: [],
         firstDate: row.trade_date, lastDate: row.trade_date,
-        firstType: row.trade_type, expiry_date: row.expiry_date,
+        firstType: row.trade_type,
       };
     }
-    const g = bySymbol[row.symbol];
+    const g = byKey[key];
     g.tradeIds.push(row.trade_id);
     if (row.trade_date < g.firstDate) { g.firstDate = row.trade_date; g.firstType = row.trade_type; }
     if (row.trade_date > g.lastDate)    g.lastDate = row.trade_date;
@@ -117,15 +127,8 @@ function processTradebook(text) {
   }
 
   const legs = [];
-  for (const [sym, g] of Object.entries(bySymbol)) {
-    const parsed = parseInstrumentName(sym);
-    if (!parsed) continue;
-
-    // Use expiry_date from CSV for accurate expiry string
-    if (g.expiry_date) {
-      const fromDate = expiryFromDate(g.expiry_date);
-      if (fromDate) parsed.expiry = fromDate;
-    }
+  for (const [, g] of Object.entries(byKey)) {
+    const parsed = g.parsed;
 
     const totalBuyQty  = g.buys.reduce((s, x) => s + x.qty, 0);
     const totalSellQty = g.sells.reduce((s, x) => s + x.qty, 0);
@@ -249,10 +252,20 @@ export default function ImportModal({ onClose, onImported }) {
   const handleFile = (file) => {
     if (!file) return;
     setError('');
+    // xlsx is a zip file (magic bytes "PK") — cannot be parsed as CSV
+    if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+      setError('Excel files are not supported. In Zerodha Console open the Tradebook, click Download, and choose CSV format.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text   = e.target.result;
+        const text = e.target.result;
+        // Guard against accidentally dropping a binary/xlsx file
+        if (text.startsWith('PK')) {
+          setError('This looks like an Excel file (.xlsx). Please download the CSV version from Zerodha Console instead.');
+          return;
+        }
         const header = text.split('\n')[0].trim();
         const fmt    = detectFormat(header);
         const result = fmt === 'tradebook' ? processTradebook(text) : processOrderbook(text);

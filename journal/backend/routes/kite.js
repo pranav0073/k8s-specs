@@ -98,10 +98,9 @@ function buildSymbol(leg) {
 
   const monthly = expiry.match(/^([A-Za-z]{3})\s*'(\d{2})$/);
   if (monthly) {
-    const mon  = MONTH_MAP[monthly[1].toLowerCase()];
-    const year = 2000 + parseInt(monthly[2], 10);
-    const d    = lastTuesdayOfMonth(year, mon);
-    return `NIFTY${String(d.getDate()).padStart(2,'0')}${MONTH_3[mon]}${strike}${type}`;
+    const mon = MONTH_MAP[monthly[1].toLowerCase()];
+    const yy  = monthly[2]; // 2-digit year e.g. "26"
+    return `NIFTY${yy}${MONTH_3[mon]}${strike}${type}`; // e.g. NIFTY26JUN23650PE
   }
 
   const weekly = expiry.match(/^(\d{1,2})\s+([A-Za-z]{3})$/);
@@ -369,7 +368,10 @@ function parseKiteSymbol(name) {
     const [, index, yy, monStr, strikeStr, optType] = mo;
     const monIdx = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].indexOf(monStr.toUpperCase());
     if (monIdx === -1) return null;
-    return { index, expiry: `${KITE_MON_NAMES[monIdx]} '${yy}`, strike: parseInt(strikeStr, 10), optType };
+    // Return "DD Mon" format (last Tuesday) so monthly and weekly symbols normalize identically
+    const year     = 2000 + parseInt(yy, 10);
+    const lastTues = lastTuesdayOfMonth(year, monIdx);
+    return { index, expiry: `${lastTues.getDate()} ${KITE_MON_NAMES[monIdx]}`, strike: parseInt(strikeStr, 10), optType };
   }
   return null;
 }
