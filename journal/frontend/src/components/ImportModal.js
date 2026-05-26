@@ -113,6 +113,7 @@ function processTradebook(text) {
     if (!byKey[key]) {
       byKey[key] = {
         parsed,
+        expiryDateRaw: row.expiry_date || null, // YYYY-MM-DD for expired check
         buys: [], sells: [], tradeIds: [],
         firstDate: row.trade_date, lastDate: row.trade_date,
         firstType: row.trade_type,
@@ -138,7 +139,10 @@ function processTradebook(text) {
     const side       = g.firstType === 'BUY' ? 'B' : 'S';
     const totalQty   = Math.max(totalBuyQty, totalSellQty);
     const lots       = Math.round(totalQty / LOT_SIZE);
-    const closed     = totalBuyQty === totalSellQty;
+    // Expired contracts (expiry date in the past) are always closed even if qty is unbalanced
+    const today      = new Date().toISOString().slice(0, 10);
+    const isExpired  = g.expiryDateRaw && g.expiryDateRaw < today;
+    const closed     = totalBuyQty === totalSellQty || isExpired;
     const entryPrice = side === 'B' ? buyAvg : sellAvg;
     const exitPrice  = closed ? (side === 'B' ? sellAvg : buyAvg) : null;
 
@@ -152,6 +156,7 @@ function processTradebook(text) {
       entryPrice: entryPrice != null ? Math.round(entryPrice * 100) / 100 : null,
       exitPrice:  exitPrice  != null ? Math.round(exitPrice  * 100) / 100 : null,
       closed,
+      expiredForceClose: isExpired && totalBuyQty !== totalSellQty,
       totalBuyQty,
       totalSellQty,
       tradeIds: g.tradeIds,
@@ -442,7 +447,7 @@ export default function ImportModal({ onClose, onImported }) {
                         </td>
                         <td>
                           <span className={`status-badge ${leg.closed ? 'closed' : 'open'}`}>
-                            {leg.closed ? 'closed' : 'open'}
+                            {leg.expiredForceClose ? 'expired' : leg.closed ? 'closed' : 'open'}
                           </span>
                         </td>
                       </tr>
