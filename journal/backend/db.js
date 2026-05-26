@@ -24,6 +24,8 @@ if (!tradeCols.find(c => c.name === 'close_date'))      db.exec('ALTER TABLE tra
 if (!tradeCols.find(c => c.name === 'exit_plan'))        db.exec('ALTER TABLE trades ADD COLUMN exit_plan TEXT');
 if (!tradeCols.find(c => c.name === 'exit_plan_at'))     db.exec('ALTER TABLE trades ADD COLUMN exit_plan_at TEXT');
 if (!tradeCols.find(c => c.name === 'kite_trade_ids'))   db.exec('ALTER TABLE trades ADD COLUMN kite_trade_ids TEXT');
+if (!tradeCols.find(c => c.name === 'adjustments'))      db.exec('ALTER TABLE trades ADD COLUMN adjustments TEXT');
+if (!tradeCols.find(c => c.name === 'adjustments_at'))   db.exec('ALTER TABLE trades ADD COLUMN adjustments_at TEXT');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS market_sessions (

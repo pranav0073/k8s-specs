@@ -7,28 +7,34 @@ import AutoTextarea from './AutoTextarea';
 import KiteLiveQuotes from './KiteLiveQuotes';
 import PayoffGraph from './PayoffGraph';
 
-// ── AI Exit Plan panel ────────────────────────────────────────────────────────
+// ── AI Adjustments panel ──────────────────────────────────────────────────────
 
-const SECTION_META = {
-  'Outlook':                    { icon: '📊', cls: 'ep-outlook',  label: 'Outlook' },
-  'Profit Target':              { icon: '🎯', cls: 'ep-target',   label: 'Profit Target' },
-  'Stop Loss':                  { icon: '🛑', cls: 'ep-stop',     label: 'Stop Loss' },
-  'Time-based Rules':           { icon: '⏱',  cls: 'ep-time',     label: 'Time Rules' },
-  'If Market Moves Against You':{ icon: '⚠️', cls: 'ep-adjust',   label: 'Adjustment' },
-  'Key Levels to Watch':        { icon: '📍', cls: 'ep-levels',   label: 'Key Levels' },
-  'Risk Rating':                { icon: '⚡', cls: 'ep-risk',     label: 'Risk' },
+const ADJ_SECTION_META = {
+  'Position Health': { icon: '🩺', cls: 'ep-outlook', label: 'Position Health' },
+  'Hold As-Is':      { icon: '⏸',  cls: 'ep-time',    label: 'Hold As-Is' },
 };
 
-function ExitPlan({ tradeId }) {
-  const [plan,      setPlan]      = useState(null);
-  const [planAt,    setPlanAt]    = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [generating,setGenerating]= useState(false);
-  const [error,     setError]     = useState('');
+function getAdjMeta(title) {
+  if (ADJ_SECTION_META[title]) return ADJ_SECTION_META[title];
+  if (/^Adjustment \d/i.test(title)) {
+    const colors = ['ep-target', 'ep-adjust', 'ep-levels'];
+    const icons  = ['⚙️', '🔄', '💡'];
+    const n = parseInt(title.match(/\d+/)?.[0] || '1', 10) - 1;
+    return { icon: icons[n % 3], cls: colors[n % 3], label: title };
+  }
+  return { icon: '•', cls: '', label: title };
+}
+
+function AdjustmentsPanel({ tradeId }) {
+  const [plan,       setPlan]       = useState(null);
+  const [planAt,     setPlanAt]     = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error,      setError]      = useState('');
 
   useEffect(() => {
-    axios.get(`/api/trades/${tradeId}/exit-plan`)
-      .then(r => { setPlan(r.data.exit_plan); setPlanAt(r.data.exit_plan_at); })
+    axios.get(`/api/trades/${tradeId}/adjustments`)
+      .then(r => { setPlan(r.data.adjustments); setPlanAt(r.data.adjustments_at); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [tradeId]);
@@ -36,11 +42,11 @@ function ExitPlan({ tradeId }) {
   const generate = async () => {
     setGenerating(true); setError('');
     try {
-      const r = await axios.post(`/api/trades/${tradeId}/exit-plan`);
-      setPlan(r.data.exit_plan);
-      setPlanAt(r.data.exit_plan_at);
+      const r = await axios.post(`/api/trades/${tradeId}/adjustments`);
+      setPlan(r.data.adjustments);
+      setPlanAt(r.data.adjustments_at);
     } catch (e) {
-      setError(e.response?.data?.error || 'Failed to generate exit plan');
+      setError(e.response?.data?.error || 'Failed to generate adjustments');
     } finally {
       setGenerating(false);
     }
@@ -51,8 +57,7 @@ function ExitPlan({ tradeId }) {
       const nl    = sec.indexOf('\n');
       const title = nl === -1 ? sec.trim() : sec.slice(0, nl).trim();
       const body  = nl === -1 ? '' : sec.slice(nl + 1).trim();
-      const meta  = SECTION_META[title] || { icon: '•', cls: '', label: title };
-      return { title, body, meta };
+      return { title, body, meta: getAdjMeta(title) };
     });
   }
 
@@ -62,10 +67,10 @@ function ExitPlan({ tradeId }) {
     <div className="ep-panel">
       <div className="ep-header">
         <div>
-          <div className="ep-title">AI Exit Plan</div>
+          <div className="ep-title">⚙️ AI Adjustments</div>
           {planAt && (
             <div className="ep-timestamp">
-              Last generated: {new Date(planAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              Generated: {new Date(planAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
         </div>
@@ -75,13 +80,7 @@ function ExitPlan({ tradeId }) {
           disabled={generating}
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          {generating ? (
-            <><span className="ep-spinner" /> Analysing…</>
-          ) : plan ? (
-            '↻ Refresh Plan'
-          ) : (
-            '✦ Generate Exit Plan'
-          )}
+          {generating ? <><span className="ep-spinner" /> Analysing…</> : plan ? '↻ Refresh' : '⚙️ Generate'}
         </button>
       </div>
 
@@ -89,15 +88,15 @@ function ExitPlan({ tradeId }) {
 
       {!plan && !generating && (
         <div className="ep-empty">
-          <div className="ep-empty-icon">✦</div>
-          <div>Click <strong>Generate Exit Plan</strong> to get an AI-assisted exit strategy based on live NIFTY, India VIX, global markets, and candlestick patterns.</div>
+          <div className="ep-empty-icon">⚙️</div>
+          <div>Click <strong>Generate</strong> to get AI-powered adjustment strategies — roll strikes, add hedges, convert structure — with specific trades and updated P&L targets.</div>
         </div>
       )}
 
       {generating && (
         <div className="ep-generating">
-          <div className="ep-gen-row"><span className="ep-spinner-lg" /> Fetching live market data…</div>
-          <div className="ep-gen-hint">Pulling NIFTY spot, India VIX, S&amp;P 500, crude oil, DXY and recent candle patterns</div>
+          <div className="ep-gen-row"><span className="ep-spinner-lg" /> Analysing position and market…</div>
+          <div className="ep-gen-hint">Evaluating rolls, hedges, and structure conversions</div>
         </div>
       )}
 
@@ -122,6 +121,190 @@ function ExitPlan({ tradeId }) {
           AI analysis uses live market data and stored sessions. Not financial advice — verify before acting.
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Draft Lab ─────────────────────────────────────────────────────────────────
+
+const DRAFT_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function DraftLab({ trade }) {
+  const [draftLegs, setDraftLegs] = useState([]);
+  const defaultExpiry = trade.legs?.[0]?.expiry || '';
+  const [form, setForm] = useState({ side: 'B', strike: '', type: 'CE', expiry: defaultExpiry, lots: 1, entry_price: '' });
+
+  const parsedLegs = useMemo(() => {
+    if (Array.isArray(trade.legs)) return trade.legs;
+    try { return JSON.parse(trade.legs || '[]'); } catch { return []; }
+  }, [trade.legs]);
+
+  const addDraftLeg = () => {
+    if (!form.strike || isNaN(Number(form.strike))) return;
+    setDraftLegs(prev => [...prev, {
+      side:        form.side,
+      strike:      Number(form.strike),
+      type:        form.type,
+      expiry:      form.expiry || defaultExpiry,
+      lots:        Number(form.lots) || 1,
+      entry_price: Number(form.entry_price) || 0,
+    }]);
+    setForm(f => ({ ...f, strike: '', entry_price: '' }));
+  };
+
+  const removeDraft = (idx) => setDraftLegs(prev => prev.filter((_, i) => i !== idx));
+
+  // Today's date for expiry suggestions
+  const today = new Date();
+  const suggestExpiries = [0, 7, 14, 21].map(d => {
+    const dt = new Date(today.getTime() + d * 86400000);
+    return `${dt.getDate()} ${DRAFT_MONTH_NAMES[dt.getMonth()]}`;
+  });
+
+  return (
+    <div className="draft-lab">
+      <div className="draft-lab-header">
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>📐 Draft Lab</div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>Add hypothetical legs to see how the payoff changes</div>
+        </div>
+        {draftLegs.length > 0 && (
+          <button className="btn btn-secondary btn-sm" onClick={() => setDraftLegs([])}>✕ Clear Draft</button>
+        )}
+      </div>
+
+      <div className="draft-positions">
+        {/* Current legs */}
+        <div className="draft-col">
+          <div className="draft-col-title">Current Position</div>
+          <table className="draft-legs-table">
+            <tbody>
+              {parsedLegs.map((l, i) => (
+                <tr key={i} className={l.side === 'B' ? 'buy-row' : 'sell-row'}>
+                  <td><span className={`side-${l.side}`}>{l.side === 'B' ? 'BUY' : 'SELL'}</span></td>
+                  <td>{l.lots}L</td>
+                  <td>{l.strike} {l.type}</td>
+                  <td style={{ color: '#6b7280', fontSize: 11 }}>{l.expiry}</td>
+                  <td>₹{l.entry_price}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Draft legs */}
+        {draftLegs.length > 0 && (
+          <div className="draft-col">
+            <div className="draft-col-title" style={{ color: '#2563eb' }}>Draft Legs</div>
+            <table className="draft-legs-table">
+              <tbody>
+                {draftLegs.map((l, i) => (
+                  <tr key={i} className={l.side === 'B' ? 'buy-row' : 'sell-row'}>
+                    <td><span className={`side-${l.side}`}>{l.side === 'B' ? 'BUY' : 'SELL'}</span></td>
+                    <td>{l.lots}L</td>
+                    <td>{l.strike} {l.type}</td>
+                    <td style={{ color: '#6b7280', fontSize: 11 }}>{l.expiry}</td>
+                    <td>₹{l.entry_price || '—'}</td>
+                    <td>
+                      <button className="draft-remove" onClick={() => removeDraft(i)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add draft leg form */}
+      <div className="draft-add-form">
+        <div className="draft-form-title">+ Add Draft Leg</div>
+        <div className="draft-form-row">
+          {/* B/S toggle */}
+          <div className="draft-toggle-group">
+            <button
+              className={`draft-toggle${form.side === 'B' ? ' active-buy' : ''}`}
+              onClick={() => setForm(f => ({ ...f, side: 'B' }))}
+            >BUY</button>
+            <button
+              className={`draft-toggle${form.side === 'S' ? ' active-sell' : ''}`}
+              onClick={() => setForm(f => ({ ...f, side: 'S' }))}
+            >SELL</button>
+          </div>
+
+          {/* Strike */}
+          <div className="draft-field">
+            <label>Strike</label>
+            <input
+              type="number" step="50" min="0" placeholder="24100"
+              value={form.strike}
+              onChange={e => setForm(f => ({ ...f, strike: e.target.value }))}
+            />
+          </div>
+
+          {/* CE/PE toggle */}
+          <div className="draft-toggle-group">
+            <button
+              className={`draft-toggle${form.type === 'CE' ? ' active-buy' : ''}`}
+              onClick={() => setForm(f => ({ ...f, type: 'CE' }))}
+            >CE</button>
+            <button
+              className={`draft-toggle${form.type === 'PE' ? ' active-sell' : ''}`}
+              onClick={() => setForm(f => ({ ...f, type: 'PE' }))}
+            >PE</button>
+          </div>
+
+          {/* Expiry */}
+          <div className="draft-field">
+            <label>Expiry</label>
+            <input
+              type="text" placeholder="2 Jun"
+              value={form.expiry}
+              onChange={e => setForm(f => ({ ...f, expiry: e.target.value }))}
+              list="draft-expiry-list"
+            />
+            <datalist id="draft-expiry-list">
+              {suggestExpiries.map(e => <option key={e} value={e} />)}
+              {parsedLegs.map((l, i) => l.expiry ? <option key={'leg'+i} value={l.expiry} /> : null)}
+            </datalist>
+          </div>
+
+          {/* Lots */}
+          <div className="draft-field" style={{ maxWidth: 64 }}>
+            <label>Lots</label>
+            <input
+              type="number" min="1" step="1"
+              value={form.lots}
+              onChange={e => setForm(f => ({ ...f, lots: e.target.value }))}
+            />
+          </div>
+
+          {/* Price */}
+          <div className="draft-field" style={{ maxWidth: 88 }}>
+            <label>Price ₹</label>
+            <input
+              type="number" min="0" step="0.5" placeholder="0"
+              value={form.entry_price}
+              onChange={e => setForm(f => ({ ...f, entry_price: e.target.value }))}
+            />
+          </div>
+
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ marginTop: 20 }}
+            onClick={addDraftLeg}
+            disabled={!form.strike}
+          >
+            Add
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+          Price ₹0 = treat as costless (e.g. to visualise impact of a roll without premium adjustment)
+        </div>
+      </div>
+
+      {/* Combined payoff graph */}
+      <PayoffGraph trade={trade} extraLegs={draftLegs} />
     </div>
   );
 }
@@ -451,11 +634,12 @@ export default function TradeDetail() {
       {/* ── Tabs ────────────────────────────────── */}
       <div className="td-tabs">
         {[
-          { key: 'timeline',  label: 'Day-by-Day Timeline' },
-          { key: 'comments',  label: `Comment Log (${comments.filter(c => c.comment).length})` },
-          { key: 'summary',   label: 'Trade Summary' },
+          { key: 'timeline',    label: 'Day-by-Day Timeline' },
+          { key: 'comments',    label: `Comment Log (${comments.filter(c => c.comment).length})` },
+          { key: 'summary',     label: 'Trade Summary' },
           ...(trade.status === 'open' ? [
-            { key: 'exitplan',    label: '✦ AI Exit Plan' },
+            { key: 'adjustments', label: '⚙️ AI Adjustments' },
+            { key: 'draftlab',    label: '📐 Draft Lab' },
             { key: 'livequotes',  label: '⚡ Live Quotes' },
           ] : []),
         ].map(t => (
@@ -632,9 +816,14 @@ export default function TradeDetail() {
         </div>
       )}
 
-      {/* ── Tab: AI Exit Plan ───────────────────── */}
-      {tab === 'exitplan' && trade.status === 'open' && (
-        <ExitPlan tradeId={id} />
+      {/* ── Tab: AI Adjustments ─────────────────── */}
+      {tab === 'adjustments' && trade.status === 'open' && (
+        <AdjustmentsPanel tradeId={id} />
+      )}
+
+      {/* ── Tab: Draft Lab ──────────────────────── */}
+      {tab === 'draftlab' && trade.status === 'open' && (
+        <DraftLab trade={trade} />
       )}
 
       {/* ── Tab: Live Quotes ────────────────────── */}

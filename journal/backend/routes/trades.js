@@ -783,4 +783,162 @@ router.get('/:id/exit-plan', (req, res) => {
   res.json({ exit_plan: row.exit_plan || null, exit_plan_at: row.exit_plan_at || null });
 });
 
+// ── AI Adjustments ────────────────────────────────────────────────────────────
+
+// GET /api/trades/:id/adjustments  — fetch saved adjustments
+router.get('/:id/adjustments', (req, res) => {
+  const row = db.prepare('SELECT adjustments, adjustments_at FROM trades WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Trade not found' });
+  res.json({ adjustments: row.adjustments || null, adjustments_at: row.adjustments_at || null });
+});
+
+// POST /api/trades/:id/adjustments  — generate AI adjustments
+router.post('/:id/adjustments', async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not set' });
+
+    const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+
+    const legs = JSON.parse(trade.legs || '[]');
+
+    const [niftyR, vixR, sp500R] = await Promise.allSettled([
+      fetchYahoo('^NSEI', '10d'),
+      fetchYahoo('^INDIAVIX', '5d'),
+      fetchYahoo('^GSPC', '5d'),
+    ]);
+    const nifty = niftyR.status === 'fulfilled' ? niftyR.value : null;
+    const vix   = vixR.status   === 'fulfilled' ? vixR.value   : null;
+    const sp500 = sp500R.status === 'fulfilled' ? sp500R.value : null;
+
+    const sessions = db.prepare(
+      'SELECT date, open, high, low, close FROM market_sessions WHERE close IS NOT NULL ORDER BY date ASC LIMIT 30'
+    ).all();
+    const closes  = sessions.map(s => s.close);
+    const logRets = closes.slice(1).map((c, i) => Math.log(c / closes[i]));
+    function hv(n) {
+      const r = logRets.slice(-n);
+      if (r.length < 2) return null;
+      const mean = r.reduce((a, b) => a + b, 0) / r.length;
+      const v    = r.reduce((a, b) => a + (b - mean) ** 2, 0) / (r.length - 1);
+      return (Math.sqrt(v * 252) * 100).toFixed(1);
+    }
+    const hv10 = hv(10);
+    const spot  = nifty?.latest ?? null;
+    const today = new Date().toISOString().split('T')[0];
+
+    const expiryStr  = legs.map(l => l.expiry).filter(Boolean)[0] || null;
+    const expiryDate = parseExpiry(expiryStr);
+    const dte        = expiryDate ? Math.round((expiryDate.getTime() - new Date(today).getTime()) / 86400000) : null;
+    const expiryIso  = expiryDate ? expiryDate.toISOString().split('T')[0] : null;
+
+    const iv     = vix?.latest ? vix.latest / 100 : (hv10 ? parseFloat(hv10) / 100 : 0.15);
+    const T_bsm  = dte != null && dte > 0 ? dte / 365 : null;
+
+    const netPremiumRs = legs.reduce((sum, l) => {
+      return sum + (l.side === 'B' ? 1 : -1) * (l.entry_price || 0) * LOT_SIZE * (l.lots || 1);
+    }, 0);
+    const isDebit = netPremiumRs > 0;
+
+    const buyLegs    = legs.filter(l => l.side === 'B');
+    const sellLegs   = legs.filter(l => l.side === 'S');
+    const longStrike  = buyLegs.length  ? Math.min(...buyLegs.map(l => l.strike))  : null;
+    const shortStrike = sellLegs.length ? Math.max(...sellLegs.map(l => l.strike)) : null;
+    const spreadWidth = (longStrike && shortStrike) ? Math.abs(shortStrike - longStrike) : null;
+    const legType     = buyLegs[0]?.type || sellLegs[0]?.type;
+    const isCE = legType === 'CE', isPE = legType === 'PE';
+    const netPerUnit  = legs.reduce((s, l) => s + (l.side === 'B' ? 1 : -1) * (l.entry_price || 0), 0);
+    const breakeven   = longStrike != null ? Math.round(longStrike + (isCE ? 1 : -1) * Math.abs(netPerUnit)) : null;
+
+    const legGreeks = legs.map(l => {
+      if (!spot || !l.strike || !l.type || T_bsm === null) return null;
+      const g    = bsmGreeks(spot, l.strike, T_bsm, iv, l.type);
+      const sign = l.side === 'B' ? 1 : -1;
+      const n    = (l.lots || 1) * LOT_SIZE;
+      return { ...g, sign, n, strike: l.strike, type: l.type, side: l.side, lots: l.lots };
+    }).filter(Boolean);
+
+    const netDelta = legGreeks.length ? legGreeks.reduce((s, g) => s + g.sign * g.delta * g.n, 0) : null;
+    const netTheta = legGreeks.length ? legGreeks.reduce((s, g) => s + g.sign * g.theta * g.n, 0) : null;
+    const netVega  = legGreeks.length ? legGreeks.reduce((s, g) => s + g.sign * g.vega  * g.n, 0) : null;
+
+    const totalLots   = Math.max(...legs.map(l => l.lots || 1));
+    const maxGrossRs  = spreadWidth ? spreadWidth * totalLots * LOT_SIZE : null;
+    const maxProfitRs = maxGrossRs  ? Math.round(maxGrossRs - Math.abs(netPremiumRs)) : null;
+    const maxLossRs   = Math.round(Math.abs(netPremiumRs));
+
+    const spotVsBE  = spot && breakeven ? (spot - breakeven).toFixed(0) : null;
+    const beProfitable = spotVsBE != null ? (isPE ? Number(spotVsBE) < 0 : Number(spotVsBE) > 0) : null;
+    const niftyAtEntry = sessions.find(s => s.date === trade.date)?.close;
+    const niftyMovePct = niftyAtEntry && spot ? ((spot - niftyAtEntry) / niftyAtEntry * 100).toFixed(2) : null;
+
+    const legsText = legs.map(l =>
+      `  ${l.side === 'B' ? 'BUY' : 'SELL'} ${l.lots}L ${l.strike} ${l.type}` +
+      `  expiry: ${l.expiry || 'unknown'}${expiryIso ? ` (= ${expiryIso})` : ''} @ ₹${l.entry_price}`
+    ).join('\n');
+
+    const prompt = `You are an expert NIFTY options trader. Suggest 2-3 specific, actionable adjustment strategies for this trade.
+For each adjustment, provide the EXACT trade to execute, the resulting new structure, and new risk/reward figures.
+
+TODAY: ${today}
+TRADE: ${trade.instrument} ${trade.strategy || 'Options Trade'} (entered ${trade.date})
+Legs:
+${legsText}
+
+KEY METRICS (pre-computed — use these, do not recalculate):
+  Expiry: ${expiryIso ?? expiryStr ?? 'unknown'}  |  DTE: ${dte != null ? dte : 'unknown'} days
+  Structure: ${isDebit ? 'DEBIT — theta hurts' : 'CREDIT — theta helps'}
+  Breakeven: ${breakeven ?? '—'}  (currently ${beProfitable != null ? (beProfitable ? 'PROFITABLE ✓' : 'LOSING ✗') : '—'})
+  Spot: ${spot?.toFixed(2) ?? 'unavailable'}  |  Spot vs BE: ${spotVsBE != null ? (Number(spotVsBE)>=0?'+':'')+spotVsBE+' pts' : '—'}
+  NIFTY since entry: ${niftyMovePct != null ? (Number(niftyMovePct)>=0?'+':'')+niftyMovePct+'%' : '—'}
+  Max loss: ₹${maxLossRs}  |  Max profit: ₹${maxProfitRs ?? '—'}
+  Long strike: ${longStrike ?? '—'}  |  Short strike: ${shortStrike ?? '—'}  |  Spread width: ${spreadWidth ?? '—'} pts
+
+GREEKS (Black-Scholes, IV=${(iv*100).toFixed(1)}%):
+  Net Delta: ${netDelta?.toFixed(2) ?? '—'} (₹${netDelta?.toFixed(0) ?? '—'}/1pt NIFTY)
+  Net Theta: ${netTheta != null ? '₹'+netTheta.toFixed(2)+'/day' : '—'}
+  Net Vega:  ${netVega  != null ? '₹'+netVega.toFixed(2)+'/1%IV' : '—'}
+
+MARKET:
+  NIFTY: ${nifty ? `${nifty.latest?.toFixed(2)} (${Number(nifty.changePct)>=0?'+':''}${nifty.changePct}% today)` : 'unavailable'}
+  India VIX: ${vix ? `${vix.latest?.toFixed(2)} (${Number(vix.changePct)>=0?'+':''}${vix.changePct}%)` : 'unavailable'}
+  S&P 500: ${sp500 ? `${Number(sp500.changePct)>=0?'+':''}${sp500.changePct}%` : 'unavailable'}
+
+Respond in this EXACT format:
+
+## Position Health
+[2-3 lines: is trade profitable/losing right now? Is delta helping or hurting? Primary risk (theta/delta/vega)?]
+
+## Adjustment 1: [Short Name, e.g., "Roll Short Strike Up"]
+**Action:** [EXACT trade, e.g., "BUY back 1L 24100 CE @ ~₹X, SELL 1L 24300 CE @ ~₹Y" — use strikes rounded to 50]
+**New structure:** [Combined position with new legs, new max profit/loss/breakeven in ₹]
+**Why:** [1-line rationale]
+**Trigger:** [Specific NIFTY level or time-based condition to execute this]
+
+## Adjustment 2: [Short Name, e.g., "Add Protective Hedge"]
+[Same format]
+
+## Adjustment 3: [Short Name — only if clearly distinct and useful]
+[Same format or omit entirely]
+
+## Hold As-Is
+[One concrete condition under which no adjustment is the right choice — specific NIFTY level or DTE threshold]`;
+
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client    = new (Anthropic.default ?? Anthropic)({ apiKey });
+    const message   = await client.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages:   [{ role: 'user', content: prompt }],
+    });
+    const adjustments = message.content[0]?.text || '';
+    const now         = new Date().toISOString();
+    db.prepare('UPDATE trades SET adjustments = ?, adjustments_at = ? WHERE id = ?').run(adjustments, now, trade.id);
+    res.json({ adjustments, adjustments_at: now });
+  } catch (err) {
+    if (!res.headersSent) res.status(502).json({ error: err.message || 'Claude API call failed' });
+  }
+});
+
 module.exports = router;

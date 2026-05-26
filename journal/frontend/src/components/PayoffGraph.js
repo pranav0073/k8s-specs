@@ -142,23 +142,35 @@ function ChartTooltip({ active, payload, label, dte }) {
 }
 
 // ── Custom legend ─────────────────────────────────────────────────────────────
-function ChartLegend({ dte }) {
+function ChartLegend({ dte, hasDraft }) {
   return (
-    <div style={{ display:'flex', gap:16, justifyContent:'center', paddingTop:4, fontSize:12 }}>
+    <div style={{ display:'flex', gap:16, justifyContent:'center', paddingTop:4, fontSize:12, flexWrap:'wrap' }}>
+      {hasDraft && (
+        <>
+          <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+            <svg width="24" height="2"><line x1="0" y1="1" x2="24" y2="1" stroke="#d97706" strokeWidth="1.5" strokeDasharray="5 3"/></svg>
+            Current (expiry)
+          </span>
+          <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+            <svg width="24" height="2"><line x1="0" y1="1" x2="24" y2="1" stroke="#d97706" strokeWidth="2"/></svg>
+            Current ({dte}d)
+          </span>
+        </>
+      )}
       <span style={{ display:'flex', alignItems:'center', gap:5 }}>
         <svg width="24" height="2"><line x1="0" y1="1" x2="24" y2="1" stroke="#9ca3af" strokeWidth="2" strokeDasharray="5 3"/></svg>
-        At Expiry
+        {hasDraft ? 'Combined (expiry)' : 'At Expiry'}
       </span>
       <span style={{ display:'flex', alignItems:'center', gap:5 }}>
         <svg width="24" height="2"><line x1="0" y1="1" x2="24" y2="1" stroke="#2563eb" strokeWidth="2.5"/></svg>
-        At {dte}d
+        {hasDraft ? `Combined (${dte}d)` : `At ${dte}d`}
       </span>
     </div>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PayoffGraph({ trade }) {
+export default function PayoffGraph({ trade, extraLegs }) {
   const legs = useMemo(() => {
     const raw = trade?.legs;
     if (Array.isArray(raw)) return raw;
@@ -199,20 +211,32 @@ export default function PayoffGraph({ trade }) {
 
   const sigma = ivPct / 100;
 
+  const allLegs = useMemo(() => {
+    if (!extraLegs?.length) return legs;
+    return [...legs, ...extraLegs];
+  }, [legs, extraLegs]);
+
+  const hasDraft = extraLegs?.length > 0;
+
   const chartData = useMemo(() => {
-    if (!spot || !legs.length) return [];
+    if (!spot || !allLegs.length) return [];
     const range = spot * 0.14;
     const steps = 120;
     const step  = (2 * range) / steps;
     return Array.from({ length: steps + 1 }, (_, i) => {
-      const s = Math.round(spot - range + i * step);
-      return {
+      const s   = Math.round(spot - range + i * step);
+      const row = {
         s,
-        atExpiry: +computePayoff(s, 0,   sigma, legs).toFixed(0),
-        atDte:    +computePayoff(s, dte,  sigma, legs).toFixed(0),
+        atExpiry: +computePayoff(s, 0,  sigma, allLegs).toFixed(0),
+        atDte:    +computePayoff(s, dte, sigma, allLegs).toFixed(0),
       };
+      if (hasDraft && legs.length) {
+        row.origAtExpiry = +computePayoff(s, 0,  sigma, legs).toFixed(0);
+        row.origAtDte    = +computePayoff(s, dte, sigma, legs).toFixed(0);
+      }
+      return row;
     });
-  }, [spot, dte, sigma, legs]);
+  }, [spot, dte, sigma, allLegs, legs, hasDraft]);
 
   // ── Derived metrics ──────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -223,10 +247,10 @@ export default function PayoffGraph({ trade }) {
     const rr         = maxLoss !== 0 ? Math.abs(maxProfit / maxLoss).toFixed(1) : '∞';
     const T          = dte / 365;
     const pop        = computePOP(chartData, spot, sigma, T);
-    const pnlNow     = spot ? computePayoff(spot, dte,  sigma, legs) : null;
-    const pnlExpiry  = spot ? computePayoff(spot, 0,    sigma, legs) : null;
+    const pnlNow     = spot ? computePayoff(spot, dte,  sigma, allLegs) : null;
+    const pnlExpiry  = spot ? computePayoff(spot, 0,    sigma, allLegs) : null;
     return { maxProfit, maxLoss, rr, pop, pnlNow, pnlExpiry };
-  }, [chartData, spot, dte, sigma, legs]);
+  }, [chartData, spot, dte, sigma, allLegs]);
 
   // ── Breakevens ───────────────────────────────────────────────────────────
   const breakevens = useMemo(() => {
@@ -321,7 +345,7 @@ export default function PayoffGraph({ trade }) {
 
           {/* Chart */}
           <div style={{ flex:1, padding:'16px 0 8px 0', minWidth:0 }}>
-            <ChartLegend dte={dte} />
+            <ChartLegend dte={dte} hasDraft={hasDraft} />
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={chartData} margin={{ top:8, right:16, left:0, bottom:8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -360,9 +384,19 @@ export default function PayoffGraph({ trade }) {
                   axisLine={false} width={72} />
                 <Tooltip content={<ChartTooltip dte={dte} />} />
 
-                <Line type="monotone" dataKey="atExpiry" name="At Expiry"
+                {/* Original position lines (only when draft legs present) */}
+                {hasDraft && (
+                  <Line type="monotone" dataKey="origAtExpiry" name="Current (expiry)"
+                    stroke="#d97706" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={false} />
+                )}
+                {hasDraft && (
+                  <Line type="monotone" dataKey="origAtDte" name={`Current (${dte}d)`}
+                    stroke="#d97706" strokeWidth={2} dot={false} activeDot={false} />
+                )}
+
+                <Line type="monotone" dataKey="atExpiry" name={hasDraft ? 'Combined (expiry)' : 'At Expiry'}
                   stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="6 3" dot={false} activeDot={false} />
-                <Line type="monotone" dataKey="atDte" name={`At ${dte}d`}
+                <Line type="monotone" dataKey="atDte" name={hasDraft ? `Combined (${dte}d)` : `At ${dte}d`}
                   stroke="#2563eb" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#2563eb' }} />
               </ComposedChart>
             </ResponsiveContainer>
